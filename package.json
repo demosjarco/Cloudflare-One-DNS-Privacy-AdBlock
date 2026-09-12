@@ -4,7 +4,9 @@
 	"type": "module",
 	"scripts": {
 		"fmt": "prettier --check .",
-		"fmt:fix": "prettier --write ."
+		"fmt:fix": "prettier --write .",
+		"lint": "eslint **/*.*ts*",
+		"lint:fix": "npm run lint -- --fix"
 	},
 	"repository": {
 		"type": "git",
@@ -21,8 +23,13 @@
 	"dependencies": {},
 	"devDependencies": {
 		"@demosjarco/prettier-config": "1.0.2",
+		"@eslint/js": "10.0.1",
+		"@microsoft/eslint-formatter-sarif": "3.1.0",
 		"@types/node": "22.20.2",
+		"eslint": "10.10.0",
+		"eslint-config-prettier": "10.1.8",
 		"prettier": "3.9.6",
-		"typescript": "6.0.3"
+		"typescript": "6.0.3",
+		"typescript-eslint": "8.70.0"
 	}
 }
