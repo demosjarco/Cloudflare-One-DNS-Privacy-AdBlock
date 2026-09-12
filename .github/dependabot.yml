@@ -65,6 +65,19 @@ updates:
           - 'typescript-eslint'
         exclude-patterns:
           - 'eslint-plugin-qwik'
+      design:
+        patterns:
+          - '@qwikest/icons'
+          - '@fontsource/*'
+      qwik:
+        patterns:
+          - '@builder.io/qwik'
+          - '@builder.io/qwik*'
+          - 'eslint-plugin-qwik'
+          - 'vite-*'
+          - '@vitejs/*'
+          - '@rollup/plugin-*'
+          - 'rollup-plugin-*'
       typescript-core:
         patterns:
           - 'typescript'
