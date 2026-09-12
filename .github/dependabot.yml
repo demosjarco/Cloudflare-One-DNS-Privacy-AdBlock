@@ -1,0 +1,50 @@
+# To get started with Dependabot version updates, you'll need to specify which
+# package ecosystems to update and where the package manifests are located.
+# Please see the documentation for all configuration options:
+# https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+
+version: 2
+updates:
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    cooldown:
+      default-days: 1
+    open-pull-requests-limit: 999
+    groups:
+      artifacts:
+        patterns:
+          - 'actions/*-artifact'
+      caches:
+        patterns:
+          - 'actions/cache'
+          - 'actions/cache/*'
+      ci-cd:
+        patterns:
+          - 'changesets/*'
+          - 'dependabot/*'
+          - 'actions/create-github-app-token'
+          - 'actions/github-script'
+          - 'cloudflare/wrangler-action'
+      sast:
+        patterns:
+          - 'github/codeql-*'
+          - 'actions/dependency-review-action'
+          - 'step-security/*'
+          - 'microsoft/security-devops-action'
+          - 'microsoft/DevSkim-Action'
+          - 'ossf/*'
+      setup:
+        patterns:
+          - 'actions/checkout'
+          - 'actions/setup-*'
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    cooldown:
+      default-days: 1
+      semver-major-days: 30
+    versioning-strategy: increase
+    open-pull-requests-limit: 999
