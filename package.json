@@ -2,7 +2,10 @@
 	"name": "cloudflare-zero-trust-dns-privacy-adblock",
 	"description": "Pi-Hole Style Privacy/Ad blocking in the cloud leveraging CF ZT DNS",
 	"type": "module",
-	"scripts": {},
+	"scripts": {
+		"fmt": "prettier --check .",
+		"fmt:fix": "prettier --write ."
+	},
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/demosjarco/Cloudflare-Zero-Trust-DNS-Privacy-AdBlock.git"
@@ -15,5 +18,8 @@
 	},
 	"homepage": "https://github.com/demosjarco/Cloudflare-Zero-Trust-DNS-Privacy-AdBlock#readme",
 	"dependencies": {},
-	"devDependencies": {}
+	"devDependencies": {
+		"@demosjarco/prettier-config": "1.0.2",
+		"prettier": "3.9.6"
+	}
 }
