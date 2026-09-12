@@ -1,0 +1,19 @@
+{
+	"name": "cloudflare-zero-trust-dns-privacy-adblock",
+	"description": "Pi-Hole Style Privacy/Ad blocking in the cloud leveraging CF ZT DNS",
+	"type": "module",
+	"scripts": {},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/demosjarco/Cloudflare-Zero-Trust-DNS-Privacy-AdBlock.git"
+	},
+	"author": "DemosJarco <1209494+demosjarco@users.noreply.github.com>",
+	"license": "MIT",
+	"private": true,
+	"bugs": {
+		"url": "https://github.com/demosjarco/Cloudflare-Zero-Trust-DNS-Privacy-AdBlock/issues"
+	},
+	"homepage": "https://github.com/demosjarco/Cloudflare-Zero-Trust-DNS-Privacy-AdBlock#readme",
+	"dependencies": {},
+	"devDependencies": {}
+}
