@@ -63,6 +63,18 @@ updates:
           - 'eslint-plugin-*'
           - '@eslint/*'
           - 'typescript-eslint'
+      design:
+        patterns:
+          - '@qwikest/icons'
+          - '@fontsource/*'
+      qwik:
+        patterns:
+          - '@builder.io/qwik'
+          - '@builder.io/qwik*'
+          - 'eslint-plugin-qwik'
+          - 'vite-*'
+          - '@rollup/plugin-*'
+          - 'rollup-plugin-*'
       typescript-core:
         patterns:
           - 'typescript'

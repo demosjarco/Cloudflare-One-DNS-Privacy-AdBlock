@@ -2,13 +2,14 @@
 
 import eslint from '@eslint/js';
 import eslintConfigPrettier from 'eslint-config-prettier/flat';
+import { qwikEslint9Plugin } from 'eslint-plugin-qwik';
 import { defineConfig } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig({
 	// config with just ignores is the replacement for `.eslintignore`
 	ignores: ['dist/**', 'worker-configuration.d.ts'],
-	extends: [eslint.configs.recommended, tseslint.configs.recommendedTypeChecked, tseslint.configs.stylisticTypeChecked, eslintConfigPrettier],
+	extends: [eslint.configs.recommended, tseslint.configs.recommendedTypeChecked, tseslint.configs.stylisticTypeChecked, eslintConfigPrettier, qwikEslint9Plugin.configs.recommended],
 	plugins: {
 		'@typescript-eslint': tseslint.plugin,
 	},

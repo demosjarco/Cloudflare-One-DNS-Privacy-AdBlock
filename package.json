@@ -21,14 +21,18 @@
 	"homepage": "https://github.com/demosjarco/Cloudflare-Zero-Trust-DNS-Privacy-AdBlock#readme",
 	"dependencies": {},
 	"devDependencies": {
+		"@builder.io/qwik": "1.20.0",
+		"@builder.io/qwik-city": "1.20.0",
 		"@demosjarco/prettier-config": "1.0.2",
 		"@eslint/js": "10.0.1",
 		"@microsoft/eslint-formatter-sarif": "3.1.0",
 		"@types/node": "22.20.2",
 		"eslint": "10.10.0",
 		"eslint-config-prettier": "10.1.8",
+		"eslint-plugin-qwik": "1.20.0",
 		"prettier": "3.9.6",
 		"typescript": "6.0.3",
-		"typescript-eslint": "8.70.0"
+		"typescript-eslint": "8.70.0",
+		"vite-tsconfig-paths": "4.2.1"
 	}
 }
