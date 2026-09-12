@@ -54,3 +54,10 @@ updates:
           - 'prettier'
           - 'prettier-plugin-*'
           - '@demosjarco/prettier-config'
+      typescript-core:
+        patterns:
+          - 'typescript'
+          - 'tsx'
+      typescript-types:
+        patterns:
+          - '@types/*'
