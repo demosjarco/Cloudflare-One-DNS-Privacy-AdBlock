@@ -48,12 +48,21 @@ updates:
       semver-major-days: 30
     versioning-strategy: increase
     open-pull-requests-limit: 999
+    ignore:
+      # 7.0.x doesn't have the stable native API yet; that's slated for 7.1 (ts-eslint needs it)
+      - dependency-name: 'typescript'
+        versions:
+          - '>=7.0.0, <7.1.0'
     groups:
       code-management:
         patterns:
           - 'prettier'
           - 'prettier-plugin-*'
           - '@demosjarco/prettier-config'
+          - 'eslint'
+          - 'eslint-plugin-*'
+          - '@eslint/*'
+          - 'typescript-eslint'
       typescript-core:
         patterns:
           - 'typescript'
