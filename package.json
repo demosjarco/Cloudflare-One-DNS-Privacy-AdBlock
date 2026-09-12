@@ -23,6 +23,6 @@
 		"@demosjarco/prettier-config": "1.0.2",
 		"@types/node": "22.20.2",
 		"prettier": "3.9.6",
-		"typescript": "6.0.3"
+		"typescript": "7.0.2"
 	}
 }
