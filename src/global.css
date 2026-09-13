@@ -24,32 +24,9 @@
 @source '../node_modules/flowbite';
 
 /*
- * Design tokens adapted from Cloudflare's Kumo design system (https://github.com/cloudflare/kumo/blob/main/packages/kumo/src/styles/theme-kumo.css), rebuilt as plain Tailwind v4 `@theme` color tokens (no Kumo/React package involved). `light-dark()` switches automatically with the browser/OS color scheme - no manual toggle.
+ * Kumo (https://github.com/cloudflare/kumo) supplies its own design tokens via the `@import` above - only its Tailwind theme/CSS is pulled in (see package.json: installed with `--omit=peer` and never imported from JS/TSX), never its React component runtime. `light-dark()` in Kumo's tokens switches automatically with the browser/OS color scheme - no manual toggle needed.
  */
+@import '@cloudflare/kumo/styles/tailwind';
 :root {
 	color-scheme: light dark;
-}
-
-@theme {
-	--color-kumo-canvas: light-dark(oklch(98.75% 0 0), oklch(10% 0 0));
-	--color-kumo-base: light-dark(#fff, oklch(17% 0 0));
-	--color-kumo-tint: light-dark(var(--color-neutral-100), oklch(26.9% 0 0));
-	--color-kumo-line: light-dark(oklch(14.5% 0 0 / 0.1), oklch(32% 0 0));
-
-	--color-kumo-brand: light-dark(oklch(57.72% 0.2324 260), color-mix(in oklch, oklch(57.72% 0.2324 260), black 10%));
-	--color-kumo-brand-hover: light-dark(var(--color-blue-700), var(--color-blue-600));
-	--color-kumo-brand-orange: #f6821f;
-
-	--color-kumo-danger: light-dark(var(--color-red-500), var(--color-red-600));
-	--color-kumo-danger-tint: light-dark(oklch(93.6% 0.032 17.7 / 0.42), oklch(42.9% 0.176 28.7 / 0.17));
-
-	--color-kumo-warning: light-dark(oklch(73.9% 0.177 58.2), oklch(64.5% 0.168 50));
-	--color-kumo-warning-tint: light-dark(oklch(93.1% 0.107 94.6 / 0.2), oklch(35.3% 0.079 65 / 0.37));
-
-	--color-kumo-info: light-dark(var(--color-blue-500), var(--color-blue-500));
-	--color-kumo-info-tint: light-dark(oklch(93.2% 0.032 255.6 / 0.45), oklch(38% 0.145 265.5 / 0.22));
-
-	--color-kumo-default: light-dark(var(--color-neutral-900), var(--color-neutral-100));
-	--color-kumo-strong: light-dark(var(--color-neutral-950), var(--color-neutral-50));
-	--color-kumo-subtle: light-dark(var(--color-neutral-500), var(--color-neutral-400));
 }

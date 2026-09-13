@@ -14,5 +14,11 @@
 	"login_built_with_prefix": "Construit avec",
 	"login_disclaimer": "Ce site n'est pas affilié à, parrainé par, ou approuvé par Cloudflare, Inc.",
 	"login_heading": "Se connecter",
-	"login_with_cloudflare": "Continuer avec Cloudflare"
+	"login_with_cloudflare": "Continuer avec Cloudflare",
+	"sidebar_accounts_error": "Impossible de charger les comptes",
+	"sidebar_no_accounts": "Aucun compte trouvé",
+	"sidebar_open_menu": "Ouvrir le panneau latéral",
+	"sidebar_select_account": "Sélectionner le compte",
+	"sidebar_sign_out": "Se déconnecter",
+	"sidebar_unknown_user": "Utilisateur inconnu"
 }

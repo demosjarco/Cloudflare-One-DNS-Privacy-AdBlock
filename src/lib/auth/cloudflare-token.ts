@@ -1,6 +1,5 @@
 import { getToken } from '@auth/core/jwt';
 import type { Account } from '@auth/core/types';
-import type { RequestEventBase } from '@builder.io/qwik-city';
 
 export interface CloudflareTokenSet {
 	accessToken: string;
@@ -56,18 +55,4 @@ export async function refreshCloudflareTokenSet(current: CloudflareTokenSet, cli
 		refreshToken: tokens.refresh_token ?? current.refreshToken,
 		expiresAt: Math.floor(Date.now() / 1000) + tokens.expires_in,
 	} as CloudflareTokenSet;
-}
-
-/**
- * Reads the Cloudflare access token out of the (encrypted) session JWT for use in a
- * server-only context (routeLoader$/routeAction$/onRequest). Never expose this value to the client.
- */
-export async function getCloudflareAccessToken(event: RequestEventBase) {
-	const token = await getToken({
-		req: event.request,
-		secret: event.platform.env.AUTH_SECRET,
-		secureCookie: event.url.protocol === 'https:',
-	});
-
-	return token?.cloudflare?.accessToken;
 }

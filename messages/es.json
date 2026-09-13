@@ -14,5 +14,11 @@
 	"login_built_with_prefix": "Construido con",
 	"login_disclaimer": "Este sitio no está afiliado con, patrocinado por ni respaldado por Cloudflare, Inc.",
 	"login_heading": "Iniciar sesión",
-	"login_with_cloudflare": "Continuar con Cloudflare"
+	"login_with_cloudflare": "Continuar con Cloudflare",
+	"sidebar_accounts_error": "No se pudieron cargar las cuentas",
+	"sidebar_no_accounts": "No se encontraron cuentas",
+	"sidebar_open_menu": "Abrir barra lateral",
+	"sidebar_select_account": "Seleccionar cuenta",
+	"sidebar_sign_out": "Cerrar sesión",
+	"sidebar_unknown_user": "Usuario desconocido"
 }

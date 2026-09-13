@@ -14,5 +14,11 @@
 	"login_built_with_prefix": "构建于",
 	"login_disclaimer": "本网站不隶属于、也未受 Cloudflare, Inc. 赞助或认可。",
 	"login_heading": "登录",
-	"login_with_cloudflare": "继续使用 Cloudflare"
+	"login_with_cloudflare": "继续使用 Cloudflare",
+	"sidebar_accounts_error": "无法加载账户",
+	"sidebar_no_accounts": "未找到账号",
+	"sidebar_open_menu": "打开侧边栏",
+	"sidebar_select_account": "选择账户",
+	"sidebar_sign_out": "退出登录",
+	"sidebar_unknown_user": ""
 }
