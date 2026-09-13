@@ -1,0 +1,305 @@
+name: Publish Preview
+
+on:
+  push:
+    branches-ignore:
+      - main
+      - dependabot/github_actions/*
+    paths:
+      - '.github/workflows/publish-preview.yml'
+      - 'adapters/**'
+      - 'public/**'
+      - 'src/**'
+      - '*.config.*js'
+      - '*.config.*ts'
+      - 'wrangler.json*'
+      - 'package*.json'
+  # Doesn't support `branches-ignore`, so we filter in the `gatekeeper` job's `if:` below.
+  create:
+  delete:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'push' && github.ref_name || github.event.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Figures out the branch name / sanitized preview name / event type once, so `deploy`, `cleanup`, and `find-pr` below don't duplicate this logic.
+  # Runs (and only spends minutes) for branch create/delete, and for branch pushes that are NOT the branch-creation push itself (that's already handled by the `create` event, so we skip it here via `github.event.created == false` to avoid deploying twice).
+  gatekeeper:
+    if: |
+      (
+        (github.event_name == 'push' && github.event.created == false) ||
+        (github.event_name == 'create' && github.event.ref_type == 'branch') ||
+        (github.event_name == 'delete' && github.event.ref_type == 'branch')
+      ) &&
+      (github.event_name == 'push' && github.ref_name || github.event.ref) != 'main' && !startsWith((github.event_name == 'push' && github.ref_name || github.event.ref), 'dependabot/github_actions/')
+    runs-on: ubuntu-latest
+    outputs:
+      branch: ${{ steps.compute.outputs.branch }}
+      preview_name: ${{ steps.compute.outputs.preview_name }}
+      is_delete: ${{ steps.compute.outputs.is_delete }}
+    steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+          disable-sudo-and-containers: true
+      - id: compute
+        run: |
+          set -euo pipefail
+
+          if [ "$EVENT_NAME" = "push" ]; then
+            branch="$PUSH_REF_NAME"
+          else
+            branch="$EVENT_REF"
+          fi
+
+          # Preview names become their own DNS label under demosjarco.dev (<preview-name>.demosjarco.dev, via `previews_enabled` on the custom domain route in wrangler.jsonc) - sanitize to lowercase letters/numbers/dashes, must start with a letter, capped at the 63-char DNS label limit.
+          name=$(printf '%s' "$branch" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')
+          case "$name" in
+            [a-z]*) ;;
+            *) name="b-$name" ;;
+          esac
+          name="${name:0:63}"
+          name="${name%-}"
+
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "preview_name=$name" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT_NAME" = "delete" ]; then
+            echo "is_delete=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_delete=false" >> "$GITHUB_OUTPUT"
+          fi
+        # branch names are attacker-influenced (anyone who can push/create a branch chooses this string), so it's passed in via `env:` rather than interpolated directly into the script - avoids GitHub Actions script injection through a crafted branch name.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_REF_NAME: ${{ github.ref_name }}
+          EVENT_REF: ${{ github.event.ref }}
+  find-pr:
+    needs: gatekeeper
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      number: ${{ steps.lookup.outputs.number }}
+    steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+          disable-sudo-and-containers: true
+      - id: lookup
+        # --state all: on branch deletion the associated PR is almost always already
+        # closed/merged by the time `delete` fires, but we still want to find it to
+        # edit the sticky comment.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ needs.gatekeeper.outputs.branch }}
+        run: echo "number=$(gh pr list --repo "${{ github.repository }}" --head "$BRANCH" --state all --json number --jq '.[0].number // empty')" >> "$GITHUB_OUTPUT"
+  deploy:
+    needs: gatekeeper
+    if: needs.gatekeeper.outputs.is_delete == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      url: ${{ steps.comment.outputs.preview_url }}
+      comment_body: ${{ steps.comment.outputs.comment_body }}
+    steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+          disable-sudo-and-containers: true
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.gatekeeper.outputs.branch }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: lts/*
+          check-latest: true
+          cache: 'npm'
+      - run: npm ci --ignore-scripts
+      - run: npm run-script install --if-present
+      - name: Restore TS cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .tsbuildinfo
+          key: tsc-${{ github.head_ref || github.ref_name }}-${{ hashFiles('**/*.tsbuildinfo') }}
+          restore-keys: |
+            tsc-${{ github.head_ref || github.ref_name }}-
+          enableCrossOsArchive: true
+      - name: Restore server cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            server/**
+          key: qwik-${{ github.head_ref || github.ref_name }}-s-${{ hashFiles('**/*.tsbuildinfo', '**/package-lock.json') }}
+          restore-keys: |
+            qwik-${{ github.head_ref || github.ref_name }}-s-
+          enableCrossOsArchive: true
+      - run: npm run build.types
+      - name: Save TS cache
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .tsbuildinfo
+          key: tsc-${{ github.head_ref || github.ref_name }}-${{ hashFiles('**/*.tsbuildinfo') }}
+          enableCrossOsArchive: true
+        background: true
+      - name: Restore client cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            dist/**
+          key: qwik-${{ github.head_ref || github.ref_name }}-c-${{ hashFiles('src/**', '**/*.tsbuildinfo', '**/package-lock.json') }}
+          enableCrossOsArchive: true
+      - run: npm run build.client
+      - name: Save client cache
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            dist/**
+          key: qwik-${{ github.head_ref || github.ref_name }}-c-${{ hashFiles('src/**', '**/*.tsbuildinfo', '**/package-lock.json') }}
+          enableCrossOsArchive: true
+        background: true
+      - run: npm run build.server
+      - name: Save server cache
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            server/**
+          key: qwik-${{ github.head_ref || github.ref_name }}-s-${{ hashFiles('src/**', '**/*.tsbuildinfo', '**/package-lock.json') }}
+          enableCrossOsArchive: true
+        background: true
+      - run: npm run lint
+      - run: echo "wrangler_version=$(npm ls wrangler --depth=0 --json | jq -r '.dependencies.wrangler.version')" >> "$GITHUB_OUTPUT"
+        id: npm_wrangler_version
+      - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        id: wrangler
+        with:
+          wranglerVersion: ${{ steps.npm_wrangler_version.outputs.wrangler_version }}
+          apiToken: ${{ secrets.WORKER_DEPLOY_CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          command: preview --name ${{ needs.gatekeeper.outputs.preview_name }} --json
+          # Must stay in sync with publish.yml
+          # TODO: `--var` support for the beta `wrangler preview` command is unconfirmed (its documented flags were just --name/--json) - if this step starts failing, this is the first thing to suspect; preview-specific var overrides may need to go in the "previews" block of wrangler.jsonc instead, per Cloudflare's recipe docs.
+          vars: |
+            GIT_HASH
+          secrets: |
+            CF_OAUTH_SECRET
+        env:
+          GIT_HASH: ${{ github.sha }}
+          CF_OAUTH_SECRET: ${{ secrets.CF_OAUTH_SECRET }}
+      - id: comment
+        env:
+          COMMAND_OUTPUT: ${{ steps.wrangler.outputs.command-output }}
+          BRANCH: ${{ needs.gatekeeper.outputs.branch }}
+          COMMIT_SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          # `--json`'s exact key shape isn't nailed down in the (beta) docs, so try the documented
+          # candidates and fail loudly rather than post an empty/wrong URL.
+          PREVIEW_URL=$(printf '%s' "$COMMAND_OUTPUT" | jq -er '.preview_urls[0] // .preview.urls[0] // .url // empty')
+
+          if [ -z "$PREVIEW_URL" ]; then
+            echo "::error::couldn't find a preview URL in wrangler's --json output - check the wrangler step's logs above and adjust the jq filter in this step to match the actual JSON shape"
+            exit 1
+          fi
+
+          echo "preview_url=$PREVIEW_URL" >> "$GITHUB_OUTPUT"
+
+          BODY=$(printf '%s\n' \
+            "### ⚡ Deploying with Cloudflare Workers Previews" \
+            "" \
+            "| | |" \
+            "|---|---|" \
+            "| **Branch** | \`$BRANCH\` |" \
+            "| **Latest commit** | \`$COMMIT_SHA\` |" \
+            "| **Status** | ✅ Deploy successful! |" \
+            "| **Preview URL** | $PREVIEW_URL |" \
+            "" \
+            "[View workflow run]($RUN_URL)")
+
+          {
+            echo "comment_body<<PREVIEW_COMMENT_EOF"
+            echo "$BODY"
+            echo "PREVIEW_COMMENT_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "$BODY" >> "$GITHUB_STEP_SUMMARY"
+  cleanup:
+    needs: gatekeeper
+    if: needs.gatekeeper.outputs.is_delete == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      comment_body: ${{ steps.comment.outputs.comment_body }}
+    steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+          disable-sudo-and-containers: true
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # the branch itself is already gone, checkout default so wrangler has a project to run in
+          ref: main
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: lts/*
+          check-latest: true
+          cache: 'npm'
+      - run: npm ci --ignore-scripts
+      - run: npm run-script install --if-present
+      - run: echo "wrangler_version=$(npm ls wrangler --depth=0 --json | jq -r '.dependencies.wrangler.version')" >> "$GITHUB_OUTPUT"
+        id: npm_wrangler_version
+      - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        id: wrangler
+        # Cloudflare only retains a bounded number of previews and may have already pruned this one on its own; don't fail the whole run over an already-gone preview.
+        continue-on-error: true
+        with:
+          wranglerVersion: ${{ steps.npm_wrangler_version.outputs.wrangler_version }}
+          apiToken: ${{ secrets.WORKER_DEPLOY_CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          command: preview delete --name ${{ needs.gatekeeper.outputs.preview_name }} --skip-confirmation
+      - id: comment
+        env:
+          BRANCH: ${{ needs.gatekeeper.outputs.branch }}
+        run: |
+          BODY=$(printf '%s\n' \
+            "### 🗑️ Preview removed" \
+            "" \
+            "Branch \`$BRANCH\` was deleted, its preview has been torn down.")
+
+          {
+            echo "comment_body<<PREVIEW_COMMENT_EOF"
+            echo "$BODY"
+            echo "PREVIEW_COMMENT_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "$BODY" >> "$GITHUB_STEP_SUMMARY"
+  comment:
+    needs: [gatekeeper, find-pr, deploy, cleanup]
+    if: |
+      always() &&
+      needs.find-pr.outputs.number != '' &&
+      (needs.deploy.result == 'success' || needs.cleanup.result == 'success')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+          disable-sudo-and-containers: true
+      - uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
+        with:
+          number: ${{ needs.find-pr.outputs.number }}
+          header: workers-preview
+          message: ${{ needs.gatekeeper.outputs.is_delete == 'true' && needs.cleanup.outputs.comment_body || needs.deploy.outputs.comment_body }}
