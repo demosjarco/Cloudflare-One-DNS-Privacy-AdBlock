@@ -1,3 +1,18 @@
 {
-	"$schema": "https://inlang.com/schema/inlang-message-format"
+	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"back_to_login": "Volver al inicio de sesión",
+	"error_heading_access_denied": "Acceso denegado",
+	"error_heading_configuration": "Error del servidor",
+	"error_heading_default": "Algo salió mal",
+	"error_heading_verification": "Error de verificación",
+	"error_message_access_denied": "No tienes permiso para iniciar sesión.",
+	"error_message_configuration": "Hay un problema con la configuración del servidor. Por favor, comuníquese con soporte si el problema persiste.",
+	"error_message_default": "Se produjo un error inesperado. Por favor, inténtalo de nuevo.",
+	"error_message_verification": "El enlace de verificación no es válido o ha expirado.",
+	"login_built_with_and": "y de Cloudflare",
+	"login_built_with_kumo_suffix": "sistema de diseño",
+	"login_built_with_prefix": "Construido con",
+	"login_disclaimer": "Este sitio no está afiliado con, patrocinado por ni respaldado por Cloudflare, Inc.",
+	"login_heading": "Iniciar sesión",
+	"login_with_cloudflare": "Continuar con Cloudflare"
 }
