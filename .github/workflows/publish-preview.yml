@@ -8,6 +8,7 @@ on:
     paths:
       - '.github/workflows/publish-preview.yml'
       - 'adapters/**'
+      - 'messages/**'
       - 'public/**'
       - 'src/**'
       - '*.config.*js'

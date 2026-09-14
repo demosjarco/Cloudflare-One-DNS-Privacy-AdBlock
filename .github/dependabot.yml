@@ -88,6 +88,7 @@ updates:
           - '@vitejs/*'
           - '@rollup/plugin-*'
           - 'rollup-plugin-*'
+          - '@inlang/*'
       typescript-core:
         patterns:
           - 'typescript'
