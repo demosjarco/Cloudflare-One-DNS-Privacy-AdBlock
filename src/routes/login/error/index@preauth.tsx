@@ -46,7 +46,7 @@ const errorConfig: Record<ErrorType, { icon: typeof LuAlertTriangle; heading: ()
 		heading: () => m.error_heading_verification(),
 		message: () => m.error_message_verification(),
 		iconBg: 'bg-kumo-tint',
-		iconColor: 'text-kumo-brand-orange',
+		iconColor: 'text-kumo-brand',
 	},
 };
 
@@ -58,7 +58,7 @@ export default component$(() => {
 	return (
 		<div class="bg-kumo-canvas flex min-h-screen items-center justify-center px-4 py-12">
 			<div class="w-full max-w-sm">
-				<div class="bg-kumo-base ring-kumo-line rounded-lg p-8 shadow-xs ring">
+				<div class="bg-kumo-base ring-kumo-line overflow-hidden rounded-lg p-8 shadow-xs ring">
 					{/* Icon */}
 					<div class="mb-5 flex justify-center">
 						<div class={`rounded-full p-4 ${config.iconBg} ${config.iconColor}`}>
@@ -73,7 +73,7 @@ export default component$(() => {
 					<p class="text-kumo-subtle mb-6 text-center text-sm leading-relaxed">{config.message()}</p>
 
 					{/* Back to login button */}
-					<Link prefetch="js" href="/login" class="bg-kumo-brand ring-kumo-brand hover:bg-kumo-brand-hover focus-visible:ring-kumo-brand flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium text-white shadow-xs ring transition-colors focus:outline-none focus-visible:ring-2 active:scale-[0.98]">
+					<Link prefetch="js" href="/login" class="bg-kumo-brand ring-kumo-brand hover:bg-kumo-brand-hover focus-visible:ring-kumo-brand flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium text-white shadow-xs ring focus:outline-none focus-visible:ring-2 active:scale-[0.98]">
 						<LuArrowLeft class="h-4 w-4" />
 						{m.back_to_login()}
 					</Link>
