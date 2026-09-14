@@ -1,0 +1,84 @@
+name: Optimize PNGs
+
+on:
+  push:
+    paths:
+      - '.github/workflows/png-optim.yml'
+      - '**.png'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit # TODO: change to 'egress-policy: block' after couple of runs
+          disable-sudo-and-containers: true
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Git Setup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      # https://github.com/actions/cache/blob/main/examples.md#rust---cargo
+      # https://github.com/rust-lang/cargo/issues/4725
+      # https://doc.rust-lang.org/cargo/reference/environment-variables.html
+      - name: Restore Rust Package Cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      # https://doc.rust-lang.org/cargo/guide/continuous-integration.html#github-actions
+      - run: rustup update stable && rustup default stable
+      - run: |
+          if ! command -v oxipng &> /dev/null
+          then
+            echo "oxipng is not installed. Installing now..."
+            cargo install oxipng
+            exit
+          fi
+
+          installed_version=$(oxipng --version)
+          latest_version=$(curl -s https://crates.io/api/v1/crates/oxipng | jq -r '.crate.max_version')
+
+          if [[ $installed_version != *$latest_version* ]]; then
+            echo "oxipng is out of date. Updating now..."
+            cargo install oxipng --force
+          else
+            echo "oxipng is up to date."
+          fi
+      - name: Save Rust Package Cache
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        background: true
+      - run: echo "core_count=$(nproc)" >> $GITHUB_OUTPUT
+        id: ga_core_count
+      - run: oxipng --opt max --recursive --preserve --strip safe --alpha --interlace keep --zopfli -t ${{ steps.ga_core_count.outputs.core_count }} ${{ github.workspace }}
+      - run: git add **/*.png
+      - run: git commit -m "Optimized PNGs" || echo "No optimizing done"
+      - run: git push
+        continue-on-error: true
+        background: true
