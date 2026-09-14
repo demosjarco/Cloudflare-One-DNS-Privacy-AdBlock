@@ -6,13 +6,17 @@ import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig } from 'vite';
 import tsconfigPaths from 'vite-tsconfig-paths';
 
+// https://developers.cloudflare.com/workers/runtime-apis/nodejs
+const cloudflareNodeRuntimes: `node:${string}`[] = ['node:assert', 'node:async_hooks', 'node:buffer', 'node:crypto', 'node:diagnostics_channel', 'node:dns', 'node:events', 'node:net', 'node:path', 'node:process', 'node:stream', 'node:string_decoder', 'node:test', 'node:timers', 'node:url', 'node:util', 'node:zlib'];
+const cloudflareRuntimes: `cloudflare:${string}`[] = ['cloudflare:email', 'cloudflare:workers', 'cloudflare:sockets'];
+
 /**
  * Note that Vite normally starts from `index.html` but the qwikCity plugin makes start at `src/entry.ssr.tsx` instead.
  */
-export default defineConfig(({ command }) => {
+export default defineConfig(async ({ command }) => {
 	return {
 		plugins: [
-			qwikCity(),
+			qwikCity({ platform: command === 'serve' ? await import('wrangler').then(({ getPlatformProxy }) => getPlatformProxy()) : {} }),
 			qwikVite(),
 			tsconfigPaths({ root: '.' }),
 			nodeResolve({
@@ -56,24 +60,24 @@ export default defineConfig(({ command }) => {
 			sourcemap: true,
 			emptyOutDir: true,
 			rollupOptions: {
-				external: [],
+				external: ['crypto', 'async_hooks', ...cloudflareNodeRuntimes, ...cloudflareRuntimes],
 			},
 			manifest: true,
 		},
 		worker: {
 			rollupOptions: {
-				external: [],
+				external: ['crypto', 'async_hooks', ...cloudflareNodeRuntimes, ...cloudflareRuntimes],
 			},
 		},
 		ssr: {
-			external: [],
+			external: ['crypto', 'async_hooks', ...cloudflareNodeRuntimes, ...cloudflareRuntimes],
 		},
 		// This tells Vite which dependencies to pre-build in dev mode.
 		optimizeDeps: {
 			include: [],
 			// Put problematic deps that break bundling here, mostly those with binaries.
 			// For example ['better-sqlite3'] if you use that in server functions.
-			exclude: [],
+			exclude: ['crypto', 'async_hooks', ...cloudflareNodeRuntimes, ...cloudflareRuntimes],
 		},
 	};
 });
