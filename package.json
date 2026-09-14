@@ -41,7 +41,7 @@
 	"dependencies": {
 		"@qwikest/icons": "0.0.13",
 		"cloudflare": "7.1.0",
-		"zod": "4.6.2"
+		"zod": "4.6.4"
 	},
 	"devDependencies": {
 		"@auth/qwik": "0.9.3",
