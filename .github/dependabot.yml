@@ -48,3 +48,9 @@ updates:
       semver-major-days: 30
     versioning-strategy: increase
     open-pull-requests-limit: 999
+    groups:
+      code-management:
+        patterns:
+          - 'prettier'
+          - 'prettier-plugin-*'
+          - '@demosjarco/prettier-config'
