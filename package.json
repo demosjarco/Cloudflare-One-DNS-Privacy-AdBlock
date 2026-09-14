@@ -3,6 +3,8 @@
 	"description": "Pi-Hole Style Privacy/Ad blocking in the cloud leveraging CF One DNS",
 	"type": "module",
 	"scripts": {
+		"fmt": "prettier --check .",
+		"fmt:fix": "prettier --write .",
 		"clean": "npx -y rimraf@latest ./node_modules/.cache"
 	},
 	"repository": {
@@ -17,5 +19,8 @@
 	},
 	"homepage": "https://github.com/demosjarco/Cloudflare-One-DNS-Privacy-AdBlock#readme",
 	"dependencies": {},
-	"devDependencies": {}
+	"devDependencies": {
+		"@demosjarco/prettier-config": "1.0.2",
+		"prettier": "3.9.10"
+	}
 }
