@@ -1,0 +1,81 @@
+name: Prettier
+
+on:
+  push:
+    paths:
+      - '.prettierignore'
+      - '**.*js*'
+      - '**.*ts*'
+      - '**.css'
+      - '**.less'
+      - '**.scss'
+      - '**.html'
+      - '**.hbs'
+      - '**.json'
+      - '**.gql'
+      - '**.graphql'
+      - '**.md*'
+      - '**.yaml'
+      - '**.yml'
+  pull_request:
+    paths:
+      - '.prettierignore'
+      - '**.*js*'
+      - '**.*ts*'
+      - '**.css'
+      - '**.less'
+      - '**.scss'
+      - '**.html'
+      - '**.hbs'
+      - '**.json'
+      - '**.gql'
+      - '**.graphql'
+      - '**.md*'
+      - '**.yaml'
+      - '**.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  prettier:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          egress-policy: audit # TODO: change to 'egress-policy: block' after couple of runs
+          disable-sudo-and-containers: true
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.head_ref }}
+      - name: Git Setup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: lts/*
+          check-latest: true
+          cache: 'npm'
+      - run: npm ci --ignore-scripts
+      - run: npm run-script install --if-present
+      - run: npm run fmt:fix
+      - name: Check for Changes
+        id: changes
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "changes=false" >> $GITHUB_OUTPUT
+          fi
+      - run: git commit -am "Ran formatter" || echo "No formatting done"
+      - run: git push
+        continue-on-error: true
+        background: true
