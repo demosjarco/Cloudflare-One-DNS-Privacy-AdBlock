@@ -79,6 +79,9 @@ updates:
           - 'flowbite'
           - '@qwikest/icons'
           - '@fontsource/*'
+      i18n:
+        patterns:
+          - '@inlang/*'
       qwik:
         patterns:
           - '@builder.io/qwik'

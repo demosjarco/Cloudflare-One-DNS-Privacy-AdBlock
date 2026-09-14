@@ -1,5 +1,6 @@
 import { qwikCity } from '@builder.io/qwik-city/vite';
 import { qwikVite } from '@builder.io/qwik/optimizer';
+import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 import tailwindcss from '@tailwindcss/vite';
 import basicSsl from '@vitejs/plugin-basic-ssl';
@@ -38,6 +39,7 @@ export default defineConfig(async ({ command }) => {
 						}),
 					]
 				: []),
+			paraglideVitePlugin({ project: './project.inlang', outdir: './src/paraglide' }),
 			visualizer({
 				filename: 'tmp/stats.html',
 				template: 'sunburst',
