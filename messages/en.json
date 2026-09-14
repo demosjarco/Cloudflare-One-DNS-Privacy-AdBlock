@@ -1,3 +1,18 @@
 {
-	"$schema": "https://inlang.com/schema/inlang-message-format"
+	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"back_to_login": "Back to login",
+	"error_heading_access_denied": "Access denied",
+	"error_heading_configuration": "Server Error",
+	"error_heading_default": "Something went wrong",
+	"error_heading_verification": "Verification failed",
+	"error_message_access_denied": "You don't have permission to sign in.",
+	"error_message_configuration": "There is a problem with the server configuration. Please contact support if the issue persists.",
+	"error_message_default": "An unexpected error occurred. Please try again.",
+	"error_message_verification": "The verification link is invalid or has expired.",
+	"login_built_with_and": "and Cloudflare's",
+	"login_built_with_kumo_suffix": "design system",
+	"login_built_with_prefix": "Built with",
+	"login_disclaimer": "This site is not affiliated with, sponsored by, or endorsed by Cloudflare, Inc.",
+	"login_heading": "Sign in",
+	"login_with_cloudflare": "Continue with Cloudflare"
 }

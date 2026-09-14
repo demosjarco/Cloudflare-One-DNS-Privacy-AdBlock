@@ -54,6 +54,9 @@ updates:
         versions:
           - '>=7.0.0, <7.1.0'
     groups:
+      auth:
+        patterns:
+          - '@auth/*'
       cloudflare:
         patterns:
           - 'cloudflare'
@@ -97,3 +100,8 @@ updates:
         patterns:
           - '@types/*'
           - '@cloudflare/workers-types'
+      validation:
+        patterns:
+          - 'zod'
+          - 'validator'
+          - 'valibot'

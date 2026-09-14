@@ -190,9 +190,11 @@ jobs:
           vars: |
             GIT_HASH
           secrets: |
+            AUTH_SECRET
             CF_OAUTH_SECRET
         env:
           GIT_HASH: ${{ github.sha }}
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
           CF_OAUTH_SECRET: ${{ secrets.CF_OAUTH_SECRET }}
       - id: comment
         env:

@@ -17,7 +17,7 @@
 		"NODE_ENV": "production",
 		"CF_OAUTH_ID": "313e2ae257d550c979da3c6d868ab053"
 	},
-	"secrets": { "required": ["CF_OAUTH_SECRET"] },
+	"secrets": { "required": ["AUTH_SECRET", "CF_OAUTH_SECRET"] },
 	"assets": {
 		"binding": "ASSET",
 		"directory": "./dist"
