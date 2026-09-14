@@ -148,3 +148,9 @@ vite.config.ts.timestamp-*
 # Qwik
 tmp
 /server
+
+# Cloudflare
+.mf
+functions/**/*.js
+.wrangler
+.dev.vars
