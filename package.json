@@ -3,10 +3,23 @@
 	"description": "Pi-Hole Style Privacy/Ad blocking in the cloud leveraging CF One DNS",
 	"type": "module",
 	"scripts": {
+		"build": "qwik build",
+		"build.client": "vite build",
+		"build.preview": "vite build --ssr src/entry.preview.tsx",
+		"build:types:tsc": "tsc --incremental --noEmit",
+		"build:types": "npm run build:types:tsc",
 		"fmt": "prettier --check .",
 		"fmt:fix": "prettier --write .",
 		"lint": "eslint **/*.*ts*",
-		"lint:fix": "npm run lint -- --fix"
+		"lint:fix": "npm run lint -- --fix",
+		"preview": "qwik build preview && vite preview --open",
+		"preview:lhci": "qwik build preview && vite preview --port 8080",
+		"dev": "node --inspect=127.0.0.1:9229 node_modules/vite/bin/vite.js --mode ssr --port 5173 --strictPort --force",
+		"clean": "npx -y rimraf@latest ./dist ./server ./tmp",
+		"prestart:clean": "npm run clean",
+		"start:clean": "npm run start",
+		"start": "vite --mode ssr --strictPort",
+		"qwik": "qwik"
 	},
 	"repository": {
 		"type": "git",
@@ -19,16 +32,24 @@
 		"url": "https://github.com/demosjarco/Cloudflare-One-DNS-Privacy-AdBlock/issues"
 	},
 	"homepage": "https://github.com/demosjarco/Cloudflare-One-DNS-Privacy-AdBlock#readme",
-	"dependencies": {},
+	"dependencies": {
+		"@qwikest/icons": "0.0.13"
+	},
 	"devDependencies": {
+		"@builder.io/qwik": "1.20.0",
+		"@builder.io/qwik-city": "1.20.0",
 		"@demosjarco/prettier-config": "1.0.2",
 		"@eslint/js": "10.0.1",
 		"@microsoft/eslint-formatter-sarif": "3.1.0",
-		"@types/node": "26.5.1",
+		"@rollup/plugin-node-resolve": "16.0.3",
+		"@types/node": "26.2.0",
+		"@vitejs/plugin-basic-ssl": "2.3.0",
 		"eslint": "10.10.0",
 		"eslint-config-prettier": "10.1.8",
+		"eslint-plugin-qwik": "1.20.0",
 		"prettier": "3.9.6",
 		"typescript": "6.0.3",
-		"typescript-eslint": "8.70.0"
+		"typescript-eslint": "8.70.0",
+		"vite-tsconfig-paths": "6.1.1"
 	}
 }
