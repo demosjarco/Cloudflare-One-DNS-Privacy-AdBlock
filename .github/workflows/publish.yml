@@ -1,0 +1,111 @@
+name: Publish
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/publish.yml'
+      - 'adapters/**'
+      - 'public/**'
+      - 'src/**'
+      - '*.config.*js'
+      - '*.config.*ts'
+      - 'wrangler.json*'
+      - 'package*.json'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name }}
+      url: https://cfodpa.demosjarco.dev
+    steps:
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+        with:
+          disable-sudo-and-containers: true
+          egress-policy: audit # TODO: change to 'egress-policy: block' after couple of runs
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: lts/*
+          check-latest: true
+          cache: 'npm'
+      - run: npm ci --ignore-scripts
+      - run: npm run-script install --if-present
+      - name: Restore TS cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .tsbuildinfo
+          key: tsc-${{ github.head_ref || github.ref_name }}-${{ hashFiles('**/*.tsbuildinfo') }}
+          restore-keys: |
+            tsc-${{ github.head_ref || github.ref_name }}-
+          enableCrossOsArchive: true
+      - run: npm run build.types
+      - name: Save TS cache
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .tsbuildinfo
+          key: tsc-${{ github.head_ref || github.ref_name }}-${{ hashFiles('**/*.tsbuildinfo') }}
+          enableCrossOsArchive: true
+        background: true
+      - name: Restore client cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            dist/**
+          key: qwik-${{ github.head_ref || github.ref_name }}-c-${{ hashFiles('src/**', '**/*.tsbuildinfo', '**/package-lock.json') }}
+          enableCrossOsArchive: true
+      - run: npm run build.client
+      - name: Save client cache
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            dist/**
+          key: qwik-${{ github.head_ref || github.ref_name }}-c-${{ hashFiles('src/**', '**/*.tsbuildinfo', '**/package-lock.json') }}
+          enableCrossOsArchive: true
+        background: true
+      - name: Restore server cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            server/**
+          key: qwik-${{ github.head_ref || github.ref_name }}-s-${{ hashFiles('**/*.tsbuildinfo', '**/package-lock.json') }}
+          restore-keys: |
+            qwik-${{ github.head_ref || github.ref_name }}-s-
+          enableCrossOsArchive: true
+      - run: npm run build.server
+      - name: Save server cache
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            server/**
+          key: qwik-${{ github.head_ref || github.ref_name }}-s-${{ hashFiles('src/**', '**/*.tsbuildinfo', '**/package-lock.json') }}
+          enableCrossOsArchive: true
+        background: true
+      - run: npm run lint
+      - run: echo "wrangler_version=$(npm ls wrangler --depth=0 --json | jq -r '.dependencies.wrangler.version')" >> $GITHUB_OUTPUT
+        id: npm_wrangler_version
+      - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        id: wrangler
+        with:
+          wranglerVersion: ${{ steps.npm_wrangler_version.outputs.wrangler_version }}
+          apiToken: ${{ secrets.WORKER_DEPLOY_CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          vars: |
+            GIT_HASH
+          secrets: |
+            CF_OAUTH_SECRET
+        env:
+          GIT_HASH: ${{ github.sha }}
+          CF_OAUTH_SECRET: ${{ secrets.CF_OAUTH_SECRET }}
