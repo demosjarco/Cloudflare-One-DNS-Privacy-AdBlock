@@ -54,6 +54,13 @@ updates:
         versions:
           - '>=7.0.0, <7.1.0'
     groups:
+      cloudflare:
+        patterns:
+          - 'cloudflare'
+          - '@cloudflare/*'
+          - 'wrangler'
+        exclude-patterns:
+          - '@cloudflare/workers-types'
       code-management:
         patterns:
           - 'prettier'
@@ -85,3 +92,4 @@ updates:
       typescript-types:
         patterns:
           - '@types/*'
+          - '@cloudflare/workers-types'
