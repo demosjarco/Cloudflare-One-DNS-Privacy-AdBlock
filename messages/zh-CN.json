@@ -1,3 +1,18 @@
 {
-	"$schema": "https://inlang.com/schema/inlang-message-format"
+	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"back_to_login": "返回登录",
+	"error_heading_access_denied": "访问被拒绝",
+	"error_heading_configuration": "服务器错误",
+	"error_heading_default": "出了点问题",
+	"error_heading_verification": "验证失败",
+	"error_message_access_denied": "您没有权限登录。",
+	"error_message_configuration": "服务器配置存在问题。如果问题仍然存在，请联系支持。",
+	"error_message_default": "发生了一个意外错误。请重试。",
+	"error_message_verification": "验证链接无效或已过期。",
+	"login_built_with_and": "以及 Cloudflare 的",
+	"login_built_with_kumo_suffix": "设计系统",
+	"login_built_with_prefix": "构建于",
+	"login_disclaimer": "本网站不隶属于、也未受 Cloudflare, Inc. 赞助或认可。",
+	"login_heading": "登录",
+	"login_with_cloudflare": "继续使用 Cloudflare"
 }
