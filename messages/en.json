@@ -14,5 +14,15 @@
 	"login_built_with_prefix": "Built with",
 	"login_disclaimer": "This site is not affiliated with, sponsored by, or endorsed by Cloudflare, Inc.",
 	"login_heading": "Sign in",
-	"login_with_cloudflare": "Continue with Cloudflare"
+	"login_with_cloudflare": "Continue with Cloudflare",
+	"sidebar_accounts_error": "Couldn't load accounts",
+	"sidebar_no_accounts": "No accounts found",
+	"sidebar_open_menu": "Open sidebar",
+	"sidebar_select_account": "Select account",
+	"sidebar_sign_out": "Sign out",
+	"sidebar_theme_dark": "Dark",
+	"sidebar_theme_light": "Light",
+	"sidebar_theme_system": "System",
+	"sidebar_theme_toggle_label": "Color theme",
+	"sidebar_unknown_user": "Unknown user"
 }
