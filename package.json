@@ -13,6 +13,7 @@
 		"build.types": "npm run build.types:cf && npm run build.types:tsc",
 		"translate": "inlang machine translate --project project.inlang",
 		"build:translate": "tsx helpers/languageGenerate.ts",
+		"verify:no-react": "tsx helpers/verifyNoReactInDist.ts",
 		"fmt": "prettier --check .",
 		"fmt:fix": "prettier --write .",
 		"lint": "eslint **/*.*ts*",
@@ -38,6 +39,7 @@
 	},
 	"homepage": "https://github.com/demosjarco/Cloudflare-One-DNS-Privacy-AdBlock#readme",
 	"dependencies": {
+		"@cloudflare/kumo": "2.13.2",
 		"@qwikest/icons": "0.0.13",
 		"cloudflare": "7.1.0",
 		"zod": "4.6.4"
