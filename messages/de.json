@@ -1,3 +1,18 @@
 {
-	"$schema": "https://inlang.com/schema/inlang-message-format"
+	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"back_to_login": "Zurück zum Login",
+	"error_heading_access_denied": "Zugriff verweigert",
+	"error_heading_configuration": "Serverfehler",
+	"error_heading_default": "Etwas ist schiefgelaufen",
+	"error_heading_verification": "Verifizierung fehlgeschlagen",
+	"error_message_access_denied": "Sie haben keine Berechtigung, sich anzumelden.",
+	"error_message_configuration": "Es liegt ein Problem mit der Serverkonfiguration vor. Bitte wenden Sie sich an den Support, falls das Problem weiterhin besteht.",
+	"error_message_default": "Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut.",
+	"error_message_verification": "Der Verifizierungslink ist ungültig oder abgelaufen.",
+	"login_built_with_and": "und Cloudflares",
+	"login_built_with_kumo_suffix": "Designsystem",
+	"login_built_with_prefix": "Gebaut mit",
+	"login_disclaimer": "Diese Website ist weder mit Cloudflare, Inc. verbunden, noch wird sie von Cloudflare, Inc. gesponsert oder unterstützt.",
+	"login_heading": "Anmelden",
+	"login_with_cloudflare": "Weiter mit Cloudflare"
 }
