@@ -1,6 +1,7 @@
 import { qwikCity, type QwikCityVitePluginOptions } from '@builder.io/qwik-city/vite';
 import { qwikVite } from '@builder.io/qwik/optimizer';
 import { nodeResolve } from '@rollup/plugin-node-resolve';
+import tailwindcss from '@tailwindcss/vite';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 import { defineConfig, type UserConfig } from 'vite';
 import tsconfigPaths from 'vite-tsconfig-paths';
@@ -26,6 +27,7 @@ if (isLocal) {
 export default defineConfig((): UserConfig => {
 	return {
 		plugins: [
+			tailwindcss(),
 			qwikCity({ platform }),
 			qwikVite(),
 			tsconfigPaths({ root: '.' }),
