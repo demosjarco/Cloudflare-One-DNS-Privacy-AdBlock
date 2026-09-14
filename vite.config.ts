@@ -1,6 +1,7 @@
 import { qwikCity } from '@builder.io/qwik-city/vite';
 import { qwikVite } from '@builder.io/qwik/optimizer';
 import { nodeResolve } from '@rollup/plugin-node-resolve';
+import tailwindcss from '@tailwindcss/vite';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig } from 'vite';
@@ -16,6 +17,7 @@ const cloudflareRuntimes: `cloudflare:${string}`[] = ['cloudflare:email', 'cloud
 export default defineConfig(async ({ command }) => {
 	return {
 		plugins: [
+			tailwindcss(),
 			qwikCity({ platform: command === 'serve' ? await import('wrangler').then(({ getPlatformProxy }) => getPlatformProxy()) : {} }),
 			qwikVite(),
 			tsconfigPaths({ root: '.' }),
