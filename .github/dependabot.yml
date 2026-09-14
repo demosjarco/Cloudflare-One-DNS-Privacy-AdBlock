@@ -76,6 +76,7 @@ updates:
         patterns:
           - '@tailwindcss/*'
           - 'tailwind*'
+          - 'flowbite'
           - '@qwikest/icons'
           - '@fontsource/*'
       qwik:
