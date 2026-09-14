@@ -14,5 +14,15 @@
 	"login_built_with_prefix": "で構築",
 	"login_disclaimer": "当サイトはCloudflare, Inc.と提携、後援、または公認の関係にあるものではありません。",
 	"login_heading": "サインイン",
-	"login_with_cloudflare": "Cloudflare で続行"
+	"login_with_cloudflare": "Cloudflare で続行",
+	"sidebar_accounts_error": "アカウントを読み込めませんでした",
+	"sidebar_no_accounts": "アカウントが見つかりません",
+	"sidebar_open_menu": "サイドバーを開く",
+	"sidebar_select_account": "アカウントを選択",
+	"sidebar_sign_out": "サインアウト",
+	"sidebar_theme_dark": "闇",
+	"sidebar_theme_light": "光",
+	"sidebar_theme_system": "システム",
+	"sidebar_theme_toggle_label": "カラーテーマ",
+	"sidebar_unknown_user": "不明なユーザー"
 }

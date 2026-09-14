@@ -175,7 +175,9 @@ jobs:
           key: qwik-${{ github.head_ref || github.ref_name }}-s-${{ hashFiles('src/**', '**/*.tsbuildinfo', '**/package-lock.json') }}
           enableCrossOsArchive: true
         background: true
-      - run: npm run lint
+      - parallel:
+          - run: npm run verify:no-react
+          - run: npm run lint
       - run: echo "wrangler_version=$(npm ls wrangler --depth=0 --json | jq -r '.dependencies.wrangler.version')" >> "$GITHUB_OUTPUT"
         id: npm_wrangler_version
       - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
