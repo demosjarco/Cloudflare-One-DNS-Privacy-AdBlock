@@ -8,7 +8,7 @@ export default function (opts: RenderToStreamOptions) {
 		...opts,
 		// Use container attributes to set attributes on the html tag.
 		containerAttributes: {
-			lang: 'en-us',
+			lang: (opts.serverData?.['locale'] as string | undefined) ?? 'en-us',
 			...opts.containerAttributes,
 		},
 	});
