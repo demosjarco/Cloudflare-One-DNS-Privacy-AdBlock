@@ -12,10 +12,10 @@ export default component$(() => {
 	return (
 		<div class="bg-kumo-canvas flex min-h-screen items-center justify-center px-4 py-12">
 			<div class="w-full max-w-sm">
-				<div class="bg-kumo-base ring-kumo-line rounded-lg p-8 shadow-xs ring">
+				<div class="bg-kumo-base ring-kumo-line overflow-hidden rounded-lg p-8 shadow-xs ring">
 					<h1 class="text-kumo-strong mb-6 text-center text-lg font-semibold">{m.login_heading()}</h1>
 
-					<button type="button" onClick$={() => signIn.submit({ providerId: 'cloudflare', redirectTo: '/' })} class="bg-kumo-brand ring-kumo-brand hover:bg-kumo-brand-hover focus-visible:ring-kumo-brand flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium text-white shadow-xs ring transition-colors focus:outline-none focus-visible:ring-2 active:scale-[0.98]">
+					<button type="button" onClick$={() => signIn.submit({ providerId: 'cloudflare', redirectTo: '/' })} class="bg-kumo-brand ring-kumo-brand hover:bg-kumo-brand-hover focus-visible:ring-kumo-brand flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium text-white shadow-xs ring focus:outline-none focus-visible:ring-2 active:scale-[0.98]">
 						<SiCloudflare class="h-4 w-4" />
 						{m.login_with_cloudflare()}
 					</button>
