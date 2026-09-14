@@ -14,5 +14,15 @@
 	"login_built_with_prefix": "使用",
 	"login_disclaimer": "本網站與 Cloudflare, Inc. 無附屬關係，亦未受其贊助或背書。",
 	"login_heading": "登入",
-	"login_with_cloudflare": "繼續使用 Cloudflare"
+	"login_with_cloudflare": "繼續使用 Cloudflare",
+	"sidebar_accounts_error": "無法載入帳戶",
+	"sidebar_no_accounts": "找不到任何帳戶",
+	"sidebar_open_menu": "開啟側邊欄",
+	"sidebar_select_account": "選擇帳戶",
+	"sidebar_sign_out": "登出",
+	"sidebar_theme_dark": "暗黑",
+	"sidebar_theme_light": "光",
+	"sidebar_theme_system": "系统",
+	"sidebar_theme_toggle_label": "配色方案",
+	"sidebar_unknown_user": "未知使用者"
 }
