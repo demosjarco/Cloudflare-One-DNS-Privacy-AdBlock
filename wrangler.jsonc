@@ -1,0 +1,31 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "cfodpa",
+	"main": "src/entry.cloudflare-workers.ts",
+	"compatibility_date": "2026-09-11",
+	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public", "enable_request_signal", "request_signal_passthrough"],
+	"workers_dev": false,
+	"preview_urls": false,
+	"route": { "pattern": "cfodpa.demosjarco.dev", "custom_domain": true, "previews_enabled": true },
+	"minify": true,
+	"keep_names": false,
+	"upload_source_maps": true,
+	"observability": { "logs": { "enabled": true, "invocation_logs": true, "persist": true }, "traces": { "enabled": true, "persist": true } },
+	"limits": { "cpu_ms": 30000, "subrequests": 10000000 },
+	"dependencies_instrumentation": { "enabled": false },
+	"vars": {
+		"NODE_ENV": "production",
+		"CF_OAUTH_ID": "313e2ae257d550c979da3c6d868ab053"
+	},
+	"secrets": { "required": ["CF_OAUTH_SECRET"] },
+	"assets": {
+		"binding": "ASSET",
+		"directory": "./dist"
+		// "not_found_handling": "single-page-application"
+	},
+	"previews": {
+		"vars": {
+			"NODE_ENV": "preview"
+		}
+	}
+}

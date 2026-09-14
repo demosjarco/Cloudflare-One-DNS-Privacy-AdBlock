@@ -6,8 +6,11 @@
 		"build": "qwik build",
 		"build.client": "vite build",
 		"build.preview": "vite build --ssr src/entry.preview.tsx",
-		"build:types:tsc": "tsc --incremental --noEmit",
-		"build:types": "npm run build:types:tsc",
+		"build.server": "vite build -c adapters/cloudflare-pages/vite.config.ts",
+		"build.types:cf": "wrangler types",
+		"postbuild.types:cf": "prettier --write worker-configuration.d.ts",
+		"build.types:tsc": "tsc --incremental --noEmit",
+		"build.types": "npm run build.types:cf && npm run build.types:tsc",
 		"fmt": "prettier --check .",
 		"fmt:fix": "prettier --write .",
 		"lint": "eslint **/*.*ts*",
@@ -33,7 +36,8 @@
 	},
 	"homepage": "https://github.com/demosjarco/Cloudflare-One-DNS-Privacy-AdBlock#readme",
 	"dependencies": {
-		"@qwikest/icons": "0.0.13"
+		"@qwikest/icons": "0.0.13",
+		"cloudflare": "7.1.0"
 	},
 	"devDependencies": {
 		"@builder.io/qwik": "1.20.0",
@@ -50,6 +54,7 @@
 		"prettier": "3.9.6",
 		"typescript": "6.0.3",
 		"typescript-eslint": "8.70.0",
-		"vite-tsconfig-paths": "6.1.1"
+		"vite-tsconfig-paths": "6.1.1",
+		"wrangler": "4.131.1"
 	}
 }
