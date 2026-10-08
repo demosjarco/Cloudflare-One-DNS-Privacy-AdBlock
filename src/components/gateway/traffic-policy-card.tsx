@@ -24,6 +24,8 @@ export interface TrafficPolicyCardProps {
 	categories: ManagedCategory[];
 	categoriesFailed: boolean;
 	initialCategoryIds: number[];
+	/** Synced lists the rule already references (managed from the Lists page, read-only here). With at least one, a rule with zero categories is still a valid non-empty expression, so the empty-selection guards relax. */
+	listCount: number;
 	locations?: Location[];
 	locationsFailed?: boolean;
 	initialLocationScope?: 'all' | 'selected';
@@ -32,7 +34,7 @@ export interface TrafficPolicyCardProps {
 	action: ActionStore<any, any>;
 }
 
-export const TrafficPolicyCard = component$<TrafficPolicyCardProps>(({ kind, accountId, title, state, multipleMatches, categories, categoriesFailed, initialCategoryIds, locations, locationsFailed, initialLocationScope, initialLocationIds, action }) => {
+export const TrafficPolicyCard = component$<TrafficPolicyCardProps>(({ kind, accountId, title, state, multipleMatches, categories, categoriesFailed, initialCategoryIds, listCount, locations, locationsFailed, initialLocationScope, initialLocationIds, action }) => {
 	const formRef = useSignal<HTMLFormElement>();
 	const checkedCount = useSignal(initialCategoryIds.length);
 	// `useSignal` only reads its initial value once - resync after every round trip (e.g. a Delete clearing the selection) so the Enabled/Disabled guard tracks the loader's actual rule.
@@ -56,6 +58,8 @@ export const TrafficPolicyCard = component$<TrafficPolicyCardProps>(({ kind, acc
 
 			{multipleMatches ? <p class="text-kumo-danger text-sm">{kind === 'dns' ? m.gateway_policy_multiple_matches_dns() : m.gateway_policy_multiple_matches_http()}</p> : null}
 
+			{listCount > 0 ? <p class="text-kumo-subtle text-sm">{m.gateway_policy_lists_included({ count: listCount })}</p> : null}
+
 			{categoriesFailed ? (
 				<p class="text-kumo-danger text-sm">{m.gateway_categories_load_error()}</p>
 			) : categories.length === 0 ? (
@@ -64,6 +68,7 @@ export const TrafficPolicyCard = component$<TrafficPolicyCardProps>(({ kind, acc
 				<CategoryToggles
 					categories={categories}
 					checkedIds={initialCategoryIds}
+					allowEmpty={listCount > 0}
 					disabled={disabled}
 					onChange$={() => {
 						checkedCount.value = formRef.value?.querySelectorAll('input[name="categoryIds[]"]:checked').length ?? 0;
