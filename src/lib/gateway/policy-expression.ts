@@ -5,19 +5,19 @@
  * - DNS content categories: `any(dns.content_category[*] in {<id> <id>})`
  * - HTTP content categories: `any(http.request.uri.content_category[*] in {<id> <id>})`
  * - DNS domain-in-list: `any(dns.domains[*] in $<LIST_UUID>)` (confirmed via a Cloudflare docs curl example)
- * - HTTP domain-in-list: `any(http.request.domains[*] in $<LIST_UUID>)` - inferred by analogy to the DNS form,
- *   not directly observed. Lists aren't wired up yet (`listIds` is always `[]` today); verify this form empirically
- *   against a real `rules.list()` read-back once list management exists.
+ * - HTTP domain-in-list: `any(http.request.domains[*] in $<LIST_UUID>)` (verbatim in Cloudflare's own
+ *   "All-HTTP-DomainHost-Blocklist" curl example, see the learning-path link below)
  * - DNS location scope (DNS only): `dns.location in {"uuid1" "uuid2"}`
  *
  * @link https://developers.cloudflare.com/cloudflare-one/traffic-policies/dns-policies/
  * @link https://developers.cloudflare.com/cloudflare-one/traffic-policies/http-policies/
+ * @link https://developers.cloudflare.com/learning-paths/secure-internet-traffic/build-http-policies/recommended-http-policies/
  */
 export type PolicyKind = 'dns' | 'http';
 
 export interface PolicySelection {
 	categoryIds: number[];
-	/** Reusable hostname-list IDs to OR in - always `[]` until list management ships. */
+	/** Reusable hostname-list IDs (this app's synced lists, see `lists.ts`) to OR in alongside the categories. */
 	listIds: string[];
 	/** DNS only; ignored for `kind === 'http'`. An empty array means "all locations" (no `dns.location` clause at all). */
 	locationIds: string[];
