@@ -118,7 +118,27 @@ function policyState(lookup: ManagedRuleLookup): PolicyState {
 	return lookup.rule.enabled ? 'enabled' : 'disabled';
 }
 
+const useUserAgent = routeLoader$(({ platform }) => {
+	return Promise.all([
+		//
+		import('node:os'),
+		import('../../../wrangler.json'),
+	]).then(
+		([
+			//
+			{ machine, release, type },
+			{ compatibility_date },
+		]) => {
+			const details = [[type(), release()].filter((string) => string.trim().length > 0).join(' '), machine()].filter((string) => string.trim().length > 0).join('; ');
+
+			return `cfodpa/${platform.env.GIT_HASH?.substring(0, 7) ?? 'local'} ${details.trim().length && '('}${details}${details.trim().length && ')'} Workers/${compatibility_date} (+https://github.com/demosjarco/Cloudflare-One-DNS-Privacy-AdBlock)` as const;
+		},
+	);
+});
+
 export default component$(() => {
+	const userAgenTemp = useUserAgent();
+
 	const location = useLocation();
 	const accountId = location.params['accountId']!;
 
@@ -139,10 +159,13 @@ export default component$(() => {
 
 	// Content-driven wrap instead of a viewport breakpoint: each card keeps shrinking (down to a comfortable minimum) and only drops to its own row once two no longer fit side by side.
 	return (
-		<div class="grid grid-cols-[repeat(auto-fit,minmax(min(22rem,100%),1fr))] gap-4">
-			<TrafficPolicyCard kind="dns" accountId={accountId} title={m.gateway_dns_card_title()} state={policyState(dnsLookup)} multipleMatches={dnsLookup.multipleMatches} categories={categories.value.categories} categoriesFailed={categories.value.failed} initialCategoryIds={dnsSelection.categoryIds} locations={dnsLocations.value.locations} locationsFailed={dnsLocations.value.failed} initialLocationScope={dnsSelection.locationIds.length > 0 ? 'selected' : 'all'} initialLocationIds={dnsSelection.locationIds} action={dnsAction} />
+		<>
+			<div class="grid grid-cols-[repeat(auto-fit,minmax(min(22rem,100%),1fr))] gap-4">
+				<TrafficPolicyCard kind="dns" accountId={accountId} title={m.gateway_dns_card_title()} state={policyState(dnsLookup)} multipleMatches={dnsLookup.multipleMatches} categories={categories.value.categories} categoriesFailed={categories.value.failed} initialCategoryIds={dnsSelection.categoryIds} locations={dnsLocations.value.locations} locationsFailed={dnsLocations.value.failed} initialLocationScope={dnsSelection.locationIds.length > 0 ? 'selected' : 'all'} initialLocationIds={dnsSelection.locationIds} action={dnsAction} />
 
-			<TrafficPolicyCard kind="http" accountId={accountId} title={m.gateway_http_card_title()} state={policyState(httpLookup)} multipleMatches={httpLookup.multipleMatches} categories={categories.value.categories} categoriesFailed={categories.value.failed} initialCategoryIds={httpSelection.categoryIds} action={httpAction} />
-		</div>
+				<TrafficPolicyCard kind="http" accountId={accountId} title={m.gateway_http_card_title()} state={policyState(httpLookup)} multipleMatches={httpLookup.multipleMatches} categories={categories.value.categories} categoriesFailed={categories.value.failed} initialCategoryIds={httpSelection.categoryIds} action={httpAction} />
+			</div>
+			<pre>{userAgenTemp.value}</pre>
+		</>
 	);
 });
