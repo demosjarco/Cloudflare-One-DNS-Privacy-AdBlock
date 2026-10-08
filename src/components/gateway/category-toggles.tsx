@@ -9,12 +9,14 @@ import * as m from '~/paraglide/messages';
 export interface CategoryTogglesProps {
 	categories: ManagedCategory[];
 	checkedIds: number[];
+	/** True when the rule has other clauses (synced lists) keeping its expression non-empty, so unchecking the last category is allowed. */
+	allowEmpty: boolean;
 	disabled: boolean;
-	/** Fires after a checkbox toggle that leaves at least one category checked - the caller is expected to submit the form. Never fires for the change that would zero out the selection (that's blocked client-side, mirroring the server-side empty-expression guard). */
+	/** Fires after a checkbox toggle that leaves at least one category checked (or any toggle when `allowEmpty`) - the caller is expected to submit the form. Never fires for the change that would zero out the selection (that's blocked client-side, mirroring the server-side empty-expression guard). */
 	onChange$: PropFunction<() => void>;
 }
 
-export const CategoryToggles = component$<CategoryTogglesProps>(({ categories, checkedIds, disabled, onChange$ }) => {
+export const CategoryToggles = component$<CategoryTogglesProps>(({ categories, checkedIds, allowEmpty, disabled, onChange$ }) => {
 	const checked = useSignal(new Set(checkedIds));
 
 	return (
@@ -39,7 +41,7 @@ export const CategoryToggles = component$<CategoryTogglesProps>(({ categories, c
 								if (target.checked) next.add(category.id);
 								else next.delete(category.id);
 
-								if (next.size === 0) {
+								if (next.size === 0 && !allowEmpty) {
 									// Mirrors the server's empty-expression guard - never let the last category be unchecked client-side either.
 									target.checked = true;
 									alert(m.gateway_categories_empty_error());
