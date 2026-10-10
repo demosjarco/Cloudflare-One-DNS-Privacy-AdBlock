@@ -42,7 +42,7 @@
 		"@cloudflare/kumo": "2.13.2",
 		"@qwikest/icons": "0.0.13",
 		"cloudflare": "7.1.0",
-		"zod": "4.6.4"
+		"zod": "4.6.5"
 	},
 	"devDependencies": {
 		"@auth/qwik": "0.9.3",
