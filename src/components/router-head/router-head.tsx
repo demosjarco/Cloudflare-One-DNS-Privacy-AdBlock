@@ -1,6 +1,13 @@
 import { component$ } from '@builder.io/qwik';
 import { useDocumentHead, useLocation } from '@builder.io/qwik-city';
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore this gets generated automatically later in the build process
+import * as m from '~/paraglide/messages';
+
+const APP_NAME = 'Cloudflare One DNS Privacy AdBlock';
+const APP_SHORT_NAME = 'CFODPA';
+
 /**
  * The RouterHead component is placed inside of the document `<head>` element.
  */
@@ -10,14 +17,16 @@ export const RouterHead = component$(() => {
 
 	return (
 		<>
-			<title>{head.title}</title>
+			<title>{head.title ? `${head.title} | ${APP_SHORT_NAME}` : APP_NAME}</title>
 
 			<link rel="canonical" href={loc.url.href} />
 			<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-			<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+			<meta name="application-name" content={APP_SHORT_NAME} />
+			<meta name="description" content={m.app_description()} />
+			<link rel="icon" type="image/svg+xml" href="/cfodpa.svg" />
 
-			{head.meta.map((m) => (
-				<meta key={m.key} {...m} />
+			{head.meta.map((meta) => (
+				<meta key={meta.key} {...meta} />
 			))}
 
 			{head.links.map((l) => (

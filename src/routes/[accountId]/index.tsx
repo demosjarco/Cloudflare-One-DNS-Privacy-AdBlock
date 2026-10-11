@@ -22,15 +22,16 @@ import { useManagedRules, useToggleListPolicy } from './layout';
 // @ts-ignore this gets generated automatically later in the build process
 import * as m from '~/paraglide/messages';
 
-export const head: DocumentHead = {
-	title: 'Traffic Policies',
+// Function form on purpose - see `routes/index.tsx`.
+export const head: DocumentHead = () => ({
+	title: m.page_title_policies(),
 	meta: [
 		{
 			name: 'description',
-			content: 'Manage this account’s DNS and HTTP traffic policies and synced blocklists.',
+			content: m.page_description_policies(),
 		},
 	],
-};
+});
 
 // eslint-disable-next-line qwik/loader-location
 const useManagedCategories = routeLoader$(async ({ resolveValue, params, platform, request }) => {
