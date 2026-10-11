@@ -121,7 +121,7 @@ export async function setManagedRuleListMembership(apiToken: string, accountId: 
 	if (lookup.failed) return { ok: false, error: 'lookup-failed' };
 	if (lookup.multipleMatches) return { ok: false, error: 'multiple-matches' };
 
-	const selection = lookup.rule ? parseTraffic(kind, lookup.rule.traffic) : { categoryIds: [], listIds: [], locationIds: [] };
+	const selection = lookup.rule ? parseTraffic(kind, lookup.rule.traffic) : { categoryIds: [], securityCategoryIds: [], listIds: [], locationIds: [] };
 	const target = listId.toLowerCase();
 	const alreadyIncluded = selection.listIds.some((id) => id.toLowerCase() === target);
 	if (alreadyIncluded === included) return { ok: true, lookup };

@@ -87,8 +87,18 @@ export const useUpdatePolicy = routeAction$(
 			return { ok: true as const };
 		}
 
+		let { categoryIds, securityCategoryIds } = data;
+		// A deleted policy renders every toggle off, so an Enabled/Disabled click straight from that state arrives with nothing selected - create it with every managed category instead, keeping that first click a one-step, non-empty rule. A category toggled on while deleted (no `state` submitter) creates with just that selection.
+		if (!lookup.rule && data.state && categoryIds.length === 0 && securityCategoryIds.length === 0) {
+			const managed = await resolveManagedCategories(apiToken, accountId, signal);
+			if (managed.failed) return event.fail(502, { error: 'lookup-failed' });
+			categoryIds = managed.categories.filter((category) => category.group === 'privacy').map((category) => category.id);
+			securityCategoryIds = managed.categories.filter((category) => category.group === 'security').map((category) => category.id);
+		}
+
 		const traffic = buildTraffic(data.kind, {
-			categoryIds: data.categoryIds,
+			categoryIds,
+			securityCategoryIds,
 			// Synced lists are toggled from the lists table (`useToggleListPolicy` in `./layout.tsx`), never from this form - whatever the rule already references is carried through untouched, otherwise every category/location change here would silently drop them.
 			listIds: lookup.rule ? parseTraffic(data.kind, lookup.rule.traffic).listIds : [],
 			locationIds: data.kind === 'dns' && data.locationScope === 'selected' ? data.locationIds : [],
@@ -110,6 +120,8 @@ export const useUpdatePolicy = routeAction$(
 			/** The card's last-known persisted state, resent as a hidden field so a category/location-only change (no tri-state button clicked) still knows what to keep the rule at. */
 			currentState: z.enum(['enabled', 'disabled']),
 			categoryIds: z.array(z.coerce.number().int()).optional().default([]),
+			/** Posted under its own field name by `category-toggles.tsx` - security categories need Gateway's separate `security_category` selector. */
+			securityCategoryIds: z.array(z.coerce.number().int()).optional().default([]),
 			locationScope: z.enum(['all', 'selected']).optional().default('all'),
 			locationIds: z.array(z.string()).optional().default([]),
 		}),
@@ -218,10 +230,15 @@ export default component$(() => {
 	const dnsLookup = rules.value.dns;
 	const httpLookup = rules.value.http;
 
-	const managedCategoryIds = categories.value.categories.map((category) => category.id);
-	// A never-yet-created policy defaults to every resolved category so the first "Enabled" click produces a valid, non-empty rule - see the plan's tri-state/empty-expression notes.
-	const dnsSelection = dnsLookup.rule ? parseTraffic('dns', dnsLookup.rule.traffic) : { categoryIds: managedCategoryIds, listIds: [], locationIds: [] as string[] };
-	const httpSelection = httpLookup.rule ? parseTraffic('http', httpLookup.rule.traffic) : { categoryIds: managedCategoryIds, listIds: [] };
+	// A deleted (or never-created) policy blocks nothing, so every toggle renders off - `useUpdatePolicy` fills in every managed category when Enabled/Disabled is clicked from here with nothing selected.
+	const defaultSelection = {
+		categoryIds: [] as number[],
+		securityCategoryIds: [] as number[],
+		listIds: [],
+		locationIds: [] as string[],
+	};
+	const dnsSelection = dnsLookup.rule ? parseTraffic('dns', dnsLookup.rule.traffic) : defaultSelection;
+	const httpSelection = httpLookup.rule ? parseTraffic('http', httpLookup.rule.traffic) : defaultSelection;
 
 	const toggleFailure = actionFailure(toggleAction.value);
 	const refreshAllFailure = actionFailure(refreshAllAction.value);
@@ -230,9 +247,9 @@ export default component$(() => {
 		<div class="flex flex-col gap-6">
 			{/* Content-driven wrap instead of a viewport breakpoint: each card keeps shrinking (down to a comfortable minimum) and only drops to its own row once two no longer fit side by side. */}
 			<div class="grid grid-cols-[repeat(auto-fit,minmax(min(22rem,100%),1fr))] gap-4">
-				<TrafficPolicyCard kind="dns" accountId={accountId} title={m.gateway_dns_card_title()} state={policyState(dnsLookup)} multipleMatches={dnsLookup.multipleMatches} categories={categories.value.categories} categoriesFailed={categories.value.failed} initialCategoryIds={dnsSelection.categoryIds} listCount={dnsSelection.listIds.length} locations={dnsLocations.value.locations} locationsFailed={dnsLocations.value.failed} initialLocationScope={dnsSelection.locationIds.length > 0 ? 'selected' : 'all'} initialLocationIds={dnsSelection.locationIds} action={dnsAction} />
+				<TrafficPolicyCard kind="dns" accountId={accountId} title={m.gateway_dns_card_title()} state={policyState(dnsLookup)} multipleMatches={dnsLookup.multipleMatches} categories={categories.value.categories} categoriesFailed={categories.value.failed} initialCategoryIds={[...dnsSelection.categoryIds, ...dnsSelection.securityCategoryIds]} listCount={dnsSelection.listIds.length} locations={dnsLocations.value.locations} locationsFailed={dnsLocations.value.failed} initialLocationScope={dnsSelection.locationIds.length > 0 ? 'selected' : 'all'} initialLocationIds={dnsSelection.locationIds} action={dnsAction} />
 
-				<TrafficPolicyCard kind="http" accountId={accountId} title={m.gateway_http_card_title()} state={policyState(httpLookup)} multipleMatches={httpLookup.multipleMatches} categories={categories.value.categories} categoriesFailed={categories.value.failed} initialCategoryIds={httpSelection.categoryIds} listCount={httpSelection.listIds.length} action={httpAction} />
+				<TrafficPolicyCard kind="http" accountId={accountId} title={m.gateway_http_card_title()} state={policyState(httpLookup)} multipleMatches={httpLookup.multipleMatches} categories={categories.value.categories} categoriesFailed={categories.value.failed} initialCategoryIds={[...httpSelection.categoryIds, ...httpSelection.securityCategoryIds]} listCount={httpSelection.listIds.length} action={httpAction} />
 			</div>
 
 			<section id="lists" class="flex flex-col gap-3">
