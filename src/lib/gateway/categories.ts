@@ -2,11 +2,22 @@ import { APIError } from 'cloudflare';
 import { BaseCategories, type Category } from 'cloudflare/resources/zero-trust/gateway/categories';
 import { createClient } from 'cloudflare/tree-shakable';
 
-/** The three content categories this app's managed policies expose as toggles. Matched by name (case-insensitive) against whatever the account's live `categories.list()` actually returns - never hardcoded IDs, since Cloudflare's own docs table for this has been observed to lag behind categories the dashboard already offers (e.g. "Trackers/Analytics"). */
-export const MANAGED_CATEGORY_NAMES = ['Ads', 'Trackers/Analytics', 'Deceptive Ads'] as const;
+/**
+ * The categories this app's managed policies expose as toggles, grouped into the subsections the policy cards render (`privacy` = Cloudflare content categories, `security` = Cloudflare security categories). Matched by name (case-insensitive) against whatever the account's live `categories.list()` actually returns - never hardcoded IDs, since Cloudflare's own docs table for this has been observed to lag behind categories the dashboard already offers (e.g. "Trackers/Analytics").
+ *
+ * @link https://developers.cloudflare.com/cloudflare-one/traffic-policies/domain-categories/#content-categories
+ * @link https://developers.cloudflare.com/cloudflare-one/traffic-policies/domain-categories/#security-categories
+ */
+export const MANAGED_CATEGORY_GROUPS = {
+	privacy: ['Ads', 'Trackers/Analytics', 'Deceptive Ads'],
+	security: ['Malware', 'Phishing', 'Command and Control & Botnet', 'Spam'],
+} as const;
+
+export type ManagedCategoryGroup = keyof typeof MANAGED_CATEGORY_GROUPS;
 
 export interface ManagedCategory {
-	name: (typeof MANAGED_CATEGORY_NAMES)[number];
+	name: (typeof MANAGED_CATEGORY_GROUPS)[ManagedCategoryGroup][number];
+	group: ManagedCategoryGroup;
 	id: number;
 	/** Straight from the API response - never a localized/hardcoded string, so it stays correct even when the docs page doesn't. */
 	description: string | undefined;
@@ -43,7 +54,7 @@ function findCategoryByName(flat: FlatCategory[], name: string) {
 }
 
 /**
- * Resolves {@link MANAGED_CATEGORY_NAMES} against the account's live category list. A name that doesn't resolve (renamed/removed on Cloudflare's side) is silently omitted rather than crashing the page - the corresponding toggle just doesn't render.
+ * Resolves {@link MANAGED_CATEGORY_GROUPS} against the account's live category list. A name that doesn't resolve (renamed/removed on Cloudflare's side) is silently omitted rather than crashing the page - the corresponding toggle just doesn't render.
  *
  * @link https://developers.cloudflare.com/api/resources/zero_trust/subresources/gateway/subresources/categories/methods/list/
  */
@@ -53,10 +64,14 @@ export async function resolveManagedCategories(apiToken: string, accountId: stri
 		const categories = await Array.fromAsync(client.zeroTrust.gateway.categories.list({ account_id: accountId }, { signal }));
 		const flat = flattenCategories(categories);
 
-		const managed = MANAGED_CATEGORY_NAMES.map((name) => {
-			const match = findCategoryByName(flat, name);
-			return match ? ({ name, id: match.id, description: match.description } satisfies ManagedCategory) : undefined;
-		}).filter((category) => category !== undefined);
+		const managed = (Object.entries(MANAGED_CATEGORY_GROUPS) as [ManagedCategoryGroup, (typeof MANAGED_CATEGORY_GROUPS)[ManagedCategoryGroup]][]).flatMap(([group, names]) =>
+			names
+				.map((name) => {
+					const match = findCategoryByName(flat, name);
+					return match ? ({ name, group, id: match.id, description: match.description } satisfies ManagedCategory) : undefined;
+				})
+				.filter((category) => category !== undefined),
+		);
 
 		return { categories: managed, failed: false };
 	} catch (err) {
