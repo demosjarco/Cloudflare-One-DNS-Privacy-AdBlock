@@ -4,6 +4,9 @@
  * Selector names verified against Cloudflare's live docs (not just the SDK's opaque `traffic: string` type):
  * - DNS content categories: `any(dns.content_category[*] in {<id> <id>})`
  * - HTTP content categories: `any(http.request.uri.content_category[*] in {<id> <id>})`
+ * - DNS security categories: `any(dns.security_category[*] in {<id> <id>})`
+ * - HTTP security categories: `any(http.request.uri.security_category[*] in {<id> <id>})` (verbatim in Cloudflare's own
+ *   "All-HTTP-SecurityRisks-Blocklist" curl example, see the learning-path link below)
  * - DNS domain-in-list: `any(dns.domains[*] in $<LIST_UUID>)` (confirmed via a Cloudflare docs curl example)
  * - HTTP domain-in-list: `any(http.request.domains[*] in $<LIST_UUID>)` (verbatim in Cloudflare's own
  *   "All-HTTP-DomainHost-Blocklist" curl example, see the learning-path link below)
@@ -16,7 +19,10 @@
 export type PolicyKind = 'dns' | 'http';
 
 export interface PolicySelection {
+	/** Content category IDs - matched with the `content_category` selector. */
 	categoryIds: number[];
+	/** Security category IDs - Gateway matches these with a separate `security_category` selector; putting them in the `content_category` set never matches. */
+	securityCategoryIds: number[];
 	/** Reusable hostname-list IDs (this app's synced lists, see `lists.ts`) to OR in alongside the categories. */
 	listIds: string[];
 	/** DNS only; ignored for `kind === 'http'`. An empty array means "all locations" (no `dns.location` clause at all). */
@@ -27,8 +33,30 @@ function contentCategoryField(kind: PolicyKind) {
 	return kind === 'dns' ? 'dns.content_category' : 'http.request.uri.content_category';
 }
 
+function securityCategoryField(kind: PolicyKind) {
+	return kind === 'dns' ? 'dns.security_category' : 'http.request.uri.security_category';
+}
+
 function domainsField(kind: PolicyKind) {
 	return kind === 'dns' ? 'dns.domains' : 'http.request.domains';
+}
+
+function escapeField(field: string) {
+	return field.replaceAll('.', String.raw`\.`);
+}
+
+/** Reads the `{<id> <id>}` set out of an `any(<field>[*] in {...})` clause - empty when the clause isn't present. */
+function parseIdSet(traffic: string, field: string) {
+	const ids: number[] = [];
+	const match = new RegExp(String.raw`any\(${escapeField(field)}\[\*\]\s+in\s+\{([^}]*)\}\)`).exec(traffic);
+	if (!match?.[1]) return ids;
+
+	for (const idText of match[1].trim().split(/\s+/)) {
+		const id = Number(idText);
+		if (Number.isFinite(id)) ids.push(id);
+	}
+
+	return ids;
 }
 
 /** `undefined` means the selection is empty and must not be sent to Cloudflare as a `traffic` string - callers must treat this as "select at least one category (or list)". */
@@ -36,6 +64,7 @@ export function buildTraffic(kind: PolicyKind, selection: PolicySelection): stri
 	const clauses: string[] = [];
 
 	if (selection.categoryIds.length > 0) clauses.push(`any(${contentCategoryField(kind)}[*] in {${selection.categoryIds.join(' ')}})`);
+	if (selection.securityCategoryIds.length > 0) clauses.push(`any(${securityCategoryField(kind)}[*] in {${selection.securityCategoryIds.join(' ')}})`);
 	for (const listId of selection.listIds) clauses.push(`any(${domainsField(kind)}[*] in $${listId})`);
 
 	if (clauses.length === 0) return undefined;
@@ -56,19 +85,15 @@ export function buildTraffic(kind: PolicyKind, selection: PolicySelection): stri
  */
 export function parseTraffic(kind: PolicyKind, traffic: string | undefined | null): PolicySelection {
 	const categoryIds: number[] = [];
+	const securityCategoryIds: number[] = [];
 	const listIds: string[] = [];
 	const locationIds: string[] = [];
 
 	if (traffic) {
-		const categoryMatch = new RegExp(String.raw`any\(${contentCategoryField(kind).replaceAll('.', String.raw`\.`)}\[\*\]\s+in\s+\{([^}]*)\}\)`).exec(traffic);
-		if (categoryMatch?.[1]) {
-			for (const idText of categoryMatch[1].trim().split(/\s+/)) {
-				const id = Number(idText);
-				if (Number.isFinite(id)) categoryIds.push(id);
-			}
-		}
+		categoryIds.push(...parseIdSet(traffic, contentCategoryField(kind)));
+		securityCategoryIds.push(...parseIdSet(traffic, securityCategoryField(kind)));
 
-		const listMatches = traffic.matchAll(new RegExp(String.raw`any\(${domainsField(kind).replaceAll('.', String.raw`\.`)}\[\*\]\s+in\s+\$([\w-]+)\)`, 'g'));
+		const listMatches = traffic.matchAll(new RegExp(String.raw`any\(${escapeField(domainsField(kind))}\[\*\]\s+in\s+\$([\w-]+)\)`, 'g'));
 		for (const match of listMatches) if (match[1]) listIds.push(match[1]);
 
 		if (kind === 'dns') {
@@ -79,5 +104,5 @@ export function parseTraffic(kind: PolicyKind, traffic: string | undefined | nul
 		}
 	}
 
-	return { categoryIds, listIds, locationIds };
+	return { categoryIds, securityCategoryIds, listIds, locationIds };
 }
