@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" aria-label="Orange single-hump cloud with a near-black raised hand inside" data-dc-tpl="3" height="512" role="img" viewBox="0 0 512 512" width="512">
+  <path d="M 146 265 A 110 110 0 0 1 366 265 L 394 265 A 46 46 0 0 1 394 357 L 118 357 A 46 46 0 0 1 118 265 Z" data-dc-tpl="4" fill="#F97316" stroke="#F97316" stroke-linecap="round" stroke-linejoin="round" stroke-width="22"/>
+  <g data-dc-tpl="5" fill="oklch(10% 0 0)" transform="translate(264 258) scale(0.85)">
+    <rect data-dc-tpl="6" height="86" rx="10" width="20" x="-41" y="-70"/>
+    <rect data-dc-tpl="7" height="94" rx="10.5" width="21" x="-19.5" y="-78"/>
+    <rect data-dc-tpl="8" height="88" rx="9.75" width="19.5" x="3" y="-72"/>
+    <rect data-dc-tpl="9" height="68" rx="8" width="16" x="24" y="-52"/>
+    <path d="M -41 4 L 40 4 C 43 28 40 55 30 72 L -30 72 C -44 60 -46 28 -41 4 Z" data-dc-tpl="10"/>
+    <rect data-dc-tpl="11" height="22" rx="3" width="62" x="-31" y="64"/>
+    <ellipse cx="-34" cy="46" data-dc-tpl="12" rx="14" ry="22" transform="rotate(-20 -34 46)"/>
+    <rect data-dc-tpl="13" height="58" rx="11.5" transform="rotate(-38 -36 44)" width="23" x="-47.5" y="-14"/>
+  </g>
+</svg>
