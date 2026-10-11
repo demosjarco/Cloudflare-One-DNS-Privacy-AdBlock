@@ -1,6 +1,6 @@
 import type { ErrorPageParam } from '@auth/core/types';
 import { component$ } from '@builder.io/qwik';
-import { Link, routeLoader$ } from '@builder.io/qwik-city';
+import { Link, routeLoader$, type DocumentHead } from '@builder.io/qwik-city';
 import { LuAlertTriangle, LuArrowLeft, LuServerCrash, LuShieldAlert, LuUserPlus } from '@qwikest/icons/lucide';
 import * as zm from 'zod/mini';
 
@@ -49,6 +49,9 @@ const errorConfig: Record<ErrorType, { icon: typeof LuAlertTriangle; heading: ()
 		iconColor: 'text-kumo-brand',
 	},
 };
+
+// Function form on purpose - see `routes/index.tsx`.
+export const head: DocumentHead = ({ resolveValue }) => ({ title: errorConfig[resolveValue(useError)].heading() });
 
 export default component$(() => {
 	const errorParam = useError();
