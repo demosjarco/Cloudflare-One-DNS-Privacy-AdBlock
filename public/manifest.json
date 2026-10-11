@@ -1,9 +1,28 @@
 {
 	"$schema": "https://json.schemastore.org/web-manifest-combined.json",
-	"name": "qwik-project-name",
-	"short_name": "Welcome to Qwik",
-	"start_url": ".",
+	"name": "Cloudflare One DNS Privacy AdBlock",
+	"short_name": "CFODPA",
+	"description": "Pi-hole style privacy and ad blocking in the cloud, powered by Cloudflare One.",
+	"description_localized": {
+		"de": "Datenschutz und Werbeblockierung im Pi-hole-Stil in der Cloud, bereitgestellt durch Cloudflare One.",
+		"es": "Privacidad y bloqueo de anuncios al estilo Pi-hole en la nube, con tecnología de Cloudflare One.",
+		"fr": "Confidentialité et blocage des publicités à la Pi-hole dans le cloud, propulsés par Cloudflare One.",
+		"ja": "Cloudflare One を活用した、クラウド上の Pi-hole 風プライバシー保護・広告ブロック。",
+		"zh-CN": "基于 Cloudflare One 的云端 Pi-hole 式隐私保护与广告拦截。",
+		"zh-TW": "以 Cloudflare One 為基礎的雲端 Pi-hole 式隱私保護與廣告封鎖。"
+	},
+	"start_url": "./",
+	"scope": "/",
 	"display": "standalone",
-	"background_color": "#fff",
-	"description": "A Qwik project app."
+	"background_color": "#fbfbfb",
+	"theme_color": "#F97316",
+	"categories": ["security", "utilities"],
+	"icons": [
+		{
+			"src": "/cfodpa.svg",
+			"sizes": "any",
+			"type": "image/svg+xml",
+			"purpose": "any"
+		}
+	]
 }
