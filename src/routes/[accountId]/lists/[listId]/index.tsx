@@ -19,11 +19,11 @@ import * as m from '~/paraglide/messages';
 export const head: DocumentHead = ({ resolveValue }) => {
 	const detail = resolveValue(useManagedListDetail);
 	return {
-		title: detail.list?.name ?? 'List',
+		title: detail.list?.name ?? m.page_title_list(),
 		meta: [
 			{
 				name: 'description',
-				content: 'Entries and sync settings for one synced blocklist.',
+				content: m.page_description_list(),
 			},
 		],
 	};
