@@ -71,7 +71,7 @@ export const TrafficPolicyCard = component$<TrafficPolicyCardProps>(({ kind, acc
 					allowEmpty={listCount > 0}
 					disabled={disabled}
 					onChange$={() => {
-						checkedCount.value = formRef.value?.querySelectorAll('input[name="categoryIds[]"]:checked').length ?? 0;
+						checkedCount.value = formRef.value?.querySelectorAll('input[name="categoryIds[]"]:checked, input[name="securityCategoryIds[]"]:checked').length ?? 0;
 						formRef.value?.requestSubmit();
 					}}
 				/>
