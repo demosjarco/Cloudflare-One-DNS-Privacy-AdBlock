@@ -2,7 +2,9 @@
 	"name": "cloudflare-one-dns-privacy-adblock",
 	"description": "Pi-Hole Style Privacy/Ad blocking in the cloud leveraging CF One DNS",
 	"type": "module",
-	"scripts": {},
+	"scripts": {
+		"clean": "npx -y rimraf@latest ./node_modules/.cache"
+	},
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/demosjarco/Cloudflare-One-DNS-Privacy-AdBlock.git"
