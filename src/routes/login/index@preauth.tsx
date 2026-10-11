@@ -1,10 +1,22 @@
 import { component$ } from '@builder.io/qwik';
+import type { DocumentHead } from '@builder.io/qwik-city';
 import { SiCloudflare } from '@qwikest/icons/simpleicons';
 import { useSignIn } from '~/routes/plugin@auth';
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore this gets generated automatically later in the build process
 import * as m from '~/paraglide/messages';
+
+// Function form on purpose - see `routes/index.tsx`.
+export const head: DocumentHead = () => ({
+	title: m.login_heading(),
+	meta: [
+		{
+			name: 'description',
+			content: m.page_description_login(),
+		},
+	],
+});
 
 export default component$(() => {
 	const signIn = useSignIn();
