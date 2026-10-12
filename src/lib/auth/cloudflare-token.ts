@@ -1,6 +1,6 @@
 import { getToken } from '@auth/core/jwt';
 import type { Account } from '@auth/core/types';
-import type { RequestEventAction } from '@builder.io/qwik-city';
+import type { RequestEventBase } from '@builder.io/qwik-city';
 
 export interface CloudflareTokenSet {
 	accessToken: string;
@@ -19,12 +19,12 @@ declare module '@auth/core/jwt' {
 const TOKEN_ENDPOINT = 'https://dash.cloudflare.com/oauth2/token';
 
 /**
- * `routeAction$` handlers get a `RequestEventAction`, not a `RequestEventLoader` - unlike loaders (see
- * `useAuthToken` in `~/routes/layout.tsx`), there's no `resolveValue` to read another loader's resolved
- * value from inside an action. This re-derives the same JWT read directly for action handlers that need
- * the Cloudflare access token (e.g. `useUpdatePolicy` in `~/routes/[accountId]/index.tsx`).
+ * `routeAction$` handlers and `server$` functions get a request event without `resolveValue` - unlike loaders
+ * (see `useAuthToken` in `~/routes/layout.tsx`), there's no way to read another loader's resolved value from
+ * inside them. This re-derives the same JWT read directly for handlers that need the Cloudflare access token
+ * (e.g. `useUpdatePolicy` in `~/routes/[accountId]/index.tsx`, `fetchChunkPage` in the list detail route).
  */
-export async function getActionCloudflareAccessToken(event: RequestEventAction) {
+export async function getCloudflareAccessToken(event: Pick<RequestEventBase, 'request' | 'platform' | 'url'>) {
 	const token = await getToken({
 		req: event.request,
 		secret: event.platform.env.AUTH_SECRET,

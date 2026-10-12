@@ -8,7 +8,8 @@ const TRACK = 'peer-focus-visible:ring-kumo-brand pointer-events-none absolute i
 const THUMB = 'bg-kumo-base dark:bg-neutral-850 pointer-events-none absolute top-0 bottom-0 left-0 w-4.5 rounded-[5px] shadow-[0_0_1px_0.5px_var(--color-kumo-shadow-edge),0_1px_2px_var(--color-kumo-shadow-drop)] transition-all duration-150 ease-out [corner-shape:squircle] peer-checked:left-4.5 supports-[corner-shape:squircle]:rounded-[10px] dark:peer-checked:bg-blue-300';
 
 export interface PolicyListToggleProps {
-	listId: string;
+	/** Every Cloudflare list of the source (all chunks) - they're wired into the rule together. */
+	listIds: string[];
 	kind: PolicyKind;
 	included: boolean;
 	label: string;
@@ -20,7 +21,7 @@ export interface PolicyListToggleProps {
  * One self-submitting form per switch: flipping it posts `useToggleListPolicy` (see `~/routes/[accountId]/layout.tsx`), which rewrites the managed rule's `traffic` and re-runs the page's loaders, so `included` always reflects Cloudflare's actual state after the round trip.
  * Clicks are stopped from bubbling because the lists table makes the whole row a navigation target.
  */
-export const PolicyListToggle = component$<PolicyListToggleProps>(({ listId, kind, included, label, action }) => {
+export const PolicyListToggle = component$<PolicyListToggleProps>(({ listIds, kind, included, label, action }) => {
 	const formRef = useSignal<HTMLFormElement>();
 	const inputRef = useSignal<HTMLInputElement>();
 
@@ -33,7 +34,9 @@ export const PolicyListToggle = component$<PolicyListToggleProps>(({ listId, kin
 
 	return (
 		<Form ref={formRef} action={action} class="inline-flex" onClick$={(event) => event.stopPropagation()}>
-			<input type="hidden" name="listId" value={listId} />
+			{listIds.map((listId) => (
+				<input key={listId} type="hidden" name="listIds[]" value={listId} />
+			))}
 			<input type="hidden" name="kind" value={kind} />
 			<label class={['relative inline-flex h-4.5 w-9 shrink-0 cursor-pointer items-center transition-opacity duration-150', action.isRunning && 'pointer-events-none opacity-60']}>
 				<input ref={inputRef} type="checkbox" name="included" value="true" checked={included} disabled={action.isRunning} class="peer sr-only" onChange$={() => formRef.value?.requestSubmit()} />
