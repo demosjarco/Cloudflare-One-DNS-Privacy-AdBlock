@@ -67,9 +67,6 @@ updates:
           - '@cloudflare/workers-types'
       code-management:
         patterns:
-          - 'prettier'
-          - 'prettier-plugin-*'
-          - '@demosjarco/prettier-config'
           - 'eslint'
           - 'eslint-plugin-*'
           - '@eslint/*'
