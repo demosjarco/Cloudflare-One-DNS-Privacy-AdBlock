@@ -6,15 +6,15 @@ import { type PolicyState } from '~/components/gateway/tri-state-control';
 import { CreateListDialog } from '~/components/lists/create-list-dialog';
 import { PolicyListToggle } from '~/components/lists/policy-list-toggle';
 import { actionFailure, BUTTON_SECONDARY } from '~/components/lists/shared';
-import { getActionCloudflareAccessToken } from '~/lib/auth/cloudflare-token';
+import { getCloudflareAccessToken } from '~/lib/auth/cloudflare-token';
 import { OVERFLOW_STRATEGIES } from '~/lib/blocklist/pihole';
 import { formatDateTime } from '~/lib/format-date';
 import { resolveManagedCategories } from '~/lib/gateway/categories';
-import { classifySyncError, syncBlocklist } from '~/lib/gateway/list-sync';
-import { createManagedList, findManagedLists, isValidEntryLimit, managedListNameFor, MAX_LISTS_PER_ACCOUNT, replaceManagedListContents } from '~/lib/gateway/lists';
+import { classifySyncError, createSerialQueue, syncListGroup } from '~/lib/gateway/list-sync';
+import { findGroupByUrl, findManagedLists, isValidEntryLimit, MAX_LISTS_PER_ACCOUNT, type ManagedListGroup } from '~/lib/gateway/lists';
 import { listDnsLocations } from '~/lib/gateway/locations';
-import { buildTraffic, parseTraffic } from '~/lib/gateway/policy-expression';
-import { createManagedRule, deleteManagedRule, findManagedRule, ruleIncludesList, updateManagedRuleFull, type ManagedRuleLookup } from '~/lib/gateway/rules';
+import { buildTraffic, parseTraffic, type PolicyKind } from '~/lib/gateway/policy-expression';
+import { createManagedRule, deleteManagedRule, findManagedRule, ruleIncludesAllLists, ruleIncludesAnyList, updateManagedRuleFull, type ManagedRuleLookup } from '~/lib/gateway/rules';
 import { useAuthToken, useLocale, useTimezone } from '~/routes/layout';
 import { useManagedRules, useToggleListPolicy } from './layout';
 
@@ -52,7 +52,7 @@ const useDnsLocations = routeLoader$(async ({ resolveValue, params, platform, re
 // eslint-disable-next-line qwik/loader-location
 const useManagedLists = routeLoader$(async ({ resolveValue, params, platform, request }) => {
 	const token = await resolveValue(useAuthToken);
-	if (!token?.cloudflare?.accessToken) return { lists: [], totalLists: 0, failed: true };
+	if (!token?.cloudflare?.accessToken) return { lists: [], groups: [], totalLists: 0, failed: true };
 
 	return findManagedLists(token.cloudflare.accessToken, params['accountId']!, (platform.request ?? request).signal);
 });
@@ -71,7 +71,7 @@ const useManagedLists = routeLoader$(async ({ resolveValue, params, platform, re
  */
 export const useUpdatePolicy = routeAction$(
 	async (data, event) => {
-		const apiToken = await getActionCloudflareAccessToken(event);
+		const apiToken = await getCloudflareAccessToken(event);
 		if (!apiToken) return event.fail(401, { error: 'no-token' });
 		const accountId = event.params['accountId']!;
 		const signal = (event.platform.request ?? event.request).signal;
@@ -129,11 +129,11 @@ export const useUpdatePolicy = routeAction$(
 );
 
 /**
- * Fetch -> parse -> limit -> create, then straight into the new list. Quota and duplicate-source checks happen against a fresh `lists.list()` read rather than the loader's snapshot, so two tabs can't both squeeze past the 100-list cap.
+ * Fetch -> parse -> limit -> create (one Cloudflare list per `limit` entries, up to `maxLists` of them), then straight into the new group. Quota and duplicate-source checks happen against a fresh `lists.list()` read rather than the loader's snapshot, so two tabs can't both squeeze past the 100-list cap. `maxLists` above the account's free slots isn't an error: the sync uses what's free and the stored choice applies again when slots open up.
  */
 export const useCreateList = routeAction$(
 	async (data, event) => {
-		const apiToken = await getActionCloudflareAccessToken(event);
+		const apiToken = await getCloudflareAccessToken(event);
 		if (!apiToken) return event.fail(401, { error: 'no-token' });
 		const accountId = event.params['accountId']!;
 		const signal = (event.platform.request ?? event.request).signal;
@@ -143,20 +143,18 @@ export const useCreateList = routeAction$(
 		if (existing.totalLists >= MAX_LISTS_PER_ACCOUNT) return event.fail(409, { error: 'quota' });
 
 		const sourceUrl = data.url.trim();
-		if (existing.lists.some((list) => list.meta?.url.toLowerCase() === sourceUrl.toLowerCase())) return event.fail(409, { error: 'duplicate' });
+		if (findGroupByUrl(existing, sourceUrl)) return event.fail(409, { error: 'duplicate' });
 
-		let createdId: string | undefined;
+		let primaryId: string;
 		try {
-			const { title, domains, meta } = await syncBlocklist(event, sourceUrl, data.overflow, data.limit);
-			createdId = (await createManagedList(apiToken, accountId, { name: managedListNameFor(sourceUrl, title), meta, domains }, signal)).id;
+			({ primaryId } = await syncListGroup(event, apiToken, accountId, { url: sourceUrl, overflow: data.overflow, limit: data.limit, maxLists: data.maxLists, existing: [], totalLists: existing.totalLists }, signal));
 		} catch (err) {
 			const classified = classifySyncError(err);
 			return event.fail(classified.status, { error: classified.error, message: classified.message });
 		}
-		if (!createdId) return event.fail(502, { error: 'cloudflare', message: 'Cloudflare returned a list without an id' });
 
 		// Outside the try: `redirect()` works by throwing, and it must not be mistaken for a sync failure.
-		throw event.redirect(302, `/${accountId}/lists/${createdId}/`);
+		throw event.redirect(302, `/${accountId}/lists/${primaryId}/`);
 	},
 	zod$((z) =>
 		z.object({
@@ -167,15 +165,18 @@ export const useCreateList = routeAction$(
 				.refine((value) => /^https?:\/\//i.test(value), { message: 'Only http(s) URLs are supported' }),
 			overflow: z.enum(OVERFLOW_STRATEGIES),
 			limit: z.coerce.number().refine(isValidEntryLimit),
+			maxLists: z.coerce.number().int().min(1).max(MAX_LISTS_PER_ACCOUNT),
 		}),
 	),
 );
 
 /**
- * Re-syncs every managed list with its own stored settings, all at once. Each list is its own `Promise.allSettled` slot, so one dead source URL or Cloudflare rejection only marks that row as failed - the rest still land. Workers bill CPU time, not wall time, so N concurrent fetch/parse/upload chains cost the same as one, but the parse work itself is still serial CPU per request (30s budget in wrangler.json) - very large source lists times many lists is where this would eventually hit the ceiling.
+ * Re-syncs every managed source with its own stored settings, all at once. Each group is its own `Promise.allSettled` slot, so one dead source URL or Cloudflare rejection only marks that row as failed - the rest still land. Workers bill CPU time, not wall time, so N concurrent fetch/parse/upload chains cost the same as one, but the parse work itself is still serial CPU per request (30s budget in wrangler.json) - very large source lists times many lists is where this would eventually hit the ceiling.
+ *
+ * Every group sizes itself against the same `totalLists` snapshot, so two groups that both grow in the same run can both claim the last free slot - the loser gets Cloudflare's quota rejection on that row, and its next refresh sorts it out.
  */
 export const useRefreshAllLists = routeAction$(async (_data, event) => {
-	const apiToken = await getActionCloudflareAccessToken(event);
+	const apiToken = await getCloudflareAccessToken(event);
 	if (!apiToken) return event.fail(401, { error: 'no-token' });
 	const accountId = event.params['accountId']!;
 	const signal = (event.platform.request ?? event.request).signal;
@@ -183,11 +184,12 @@ export const useRefreshAllLists = routeAction$(async (_data, event) => {
 	const existing = await findManagedLists(apiToken, accountId, signal);
 	if (existing.failed) return event.fail(502, { error: 'lookup-failed' });
 
-	const refreshable = existing.lists.filter((list) => list.meta !== undefined);
+	const refreshable = existing.groups.filter((group) => group.meta !== undefined);
+	const ruleWrites = createSerialQueue();
 	const outcomes = await Promise.allSettled(
-		refreshable.map(async (list) => {
-			const { domains, meta } = await syncBlocklist(event, list.meta!.url, list.meta!.overflow, list.meta!.limit);
-			await replaceManagedListContents(apiToken, accountId, list, { meta, domains }, signal);
+		refreshable.map((group) => {
+			const { url, overflow, limit, maxLists } = group.meta!;
+			return syncListGroup(event, apiToken, accountId, { url, overflow, limit, maxLists, existing: group.chunks, totalLists: existing.totalLists, ruleWrites }, signal);
 		}),
 	);
 
@@ -195,7 +197,7 @@ export const useRefreshAllLists = routeAction$(async (_data, event) => {
 		if (outcome.status === 'fulfilled') return [];
 		// `classifySyncError` rethrows anything that isn't a fetch/parse or Cloudflare error - a genuine bug should still surface as a 500, not as a per-row note.
 		const classified = classifySyncError(outcome.reason);
-		return [{ name: refreshable[index]!.name, message: classified.message }];
+		return [{ name: refreshable[index]!.primary.name, message: classified.message }];
 	});
 
 	return { ok: true as const, total: refreshable.length, succeeded: refreshable.length - failures.length, failures };
@@ -204,6 +206,17 @@ export const useRefreshAllLists = routeAction$(async (_data, event) => {
 function policyState(lookup: ManagedRuleLookup): PolicyState {
 	if (!lookup.rule) return 'deleted';
 	return lookup.rule.enabled ? 'enabled' : 'disabled';
+}
+
+/** Sources (not Cloudflare lists) the rule references - a chunked source is one entry in the card's "also blocks N synced lists" line, however many lists it spans. */
+function groupsInRule(groups: ManagedListGroup[], lookup: ManagedRuleLookup, kind: PolicyKind) {
+	return groups.filter((group) =>
+		ruleIncludesAnyList(
+			lookup,
+			kind,
+			group.chunks.map((chunk) => chunk.id),
+		),
+	).length;
 }
 
 const TH = 'text-kumo-subtle px-3 py-2 text-left text-xs font-medium tracking-wide uppercase';
@@ -229,6 +242,7 @@ export default component$(() => {
 
 	const dnsLookup = rules.value.dns;
 	const httpLookup = rules.value.http;
+	const groups = lists.value.groups;
 
 	// A deleted (or never-created) policy blocks nothing, so every toggle renders off - `useUpdatePolicy` fills in every managed category when Enabled/Disabled is clicked from here with nothing selected.
 	const defaultSelection = {
@@ -242,14 +256,15 @@ export default component$(() => {
 
 	const toggleFailure = actionFailure(toggleAction.value);
 	const refreshAllFailure = actionFailure(refreshAllAction.value);
+	const freeSlots = lists.value.failed ? 0 : Math.max(0, MAX_LISTS_PER_ACCOUNT - lists.value.totalLists);
 
 	return (
 		<div class="flex flex-col gap-6">
 			{/* Content-driven wrap instead of a viewport breakpoint: each card keeps shrinking (down to a comfortable minimum) and only drops to its own row once two no longer fit side by side. */}
 			<div class="grid grid-cols-[repeat(auto-fit,minmax(min(22rem,100%),1fr))] gap-4">
-				<TrafficPolicyCard kind="dns" accountId={accountId} title={m.gateway_dns_card_title()} state={policyState(dnsLookup)} multipleMatches={dnsLookup.multipleMatches} categories={categories.value.categories} categoriesFailed={categories.value.failed} initialCategoryIds={[...dnsSelection.categoryIds, ...dnsSelection.securityCategoryIds]} listCount={dnsSelection.listIds.length} locations={dnsLocations.value.locations} locationsFailed={dnsLocations.value.failed} initialLocationScope={dnsSelection.locationIds.length > 0 ? 'selected' : 'all'} initialLocationIds={dnsSelection.locationIds} action={dnsAction} />
+				<TrafficPolicyCard kind="dns" accountId={accountId} title={m.gateway_dns_card_title()} state={policyState(dnsLookup)} multipleMatches={dnsLookup.multipleMatches} categories={categories.value.categories} categoriesFailed={categories.value.failed} initialCategoryIds={[...dnsSelection.categoryIds, ...dnsSelection.securityCategoryIds]} listCount={groupsInRule(groups, dnsLookup, 'dns')} locations={dnsLocations.value.locations} locationsFailed={dnsLocations.value.failed} initialLocationScope={dnsSelection.locationIds.length > 0 ? 'selected' : 'all'} initialLocationIds={dnsSelection.locationIds} action={dnsAction} />
 
-				<TrafficPolicyCard kind="http" accountId={accountId} title={m.gateway_http_card_title()} state={policyState(httpLookup)} multipleMatches={httpLookup.multipleMatches} categories={categories.value.categories} categoriesFailed={categories.value.failed} initialCategoryIds={[...httpSelection.categoryIds, ...httpSelection.securityCategoryIds]} listCount={httpSelection.listIds.length} action={httpAction} />
+				<TrafficPolicyCard kind="http" accountId={accountId} title={m.gateway_http_card_title()} state={policyState(httpLookup)} multipleMatches={httpLookup.multipleMatches} categories={categories.value.categories} categoriesFailed={categories.value.failed} initialCategoryIds={[...httpSelection.categoryIds, ...httpSelection.securityCategoryIds]} listCount={groupsInRule(groups, httpLookup, 'http')} action={httpAction} />
 			</div>
 
 			<section id="lists" class="flex flex-col gap-3">
@@ -260,12 +275,12 @@ export default component$(() => {
 					</div>
 					<div class="flex flex-wrap items-center gap-2">
 						<Form action={refreshAllAction}>
-							<button type="submit" class={BUTTON_SECONDARY} disabled={refreshAllAction.isRunning || lists.value.lists.every((list) => list.meta === undefined)}>
+							<button type="submit" class={BUTTON_SECONDARY} disabled={refreshAllAction.isRunning || groups.every((group) => group.meta === undefined)}>
 								<LuRefreshCw class={['size-4', refreshAllAction.isRunning && 'animate-spin']} />
 								{refreshAllAction.isRunning ? m.lists_refresh_all_running() : m.lists_refresh_all()}
 							</button>
 						</Form>
-						<CreateListDialog quotaReached={!lists.value.failed && lists.value.totalLists >= MAX_LISTS_PER_ACCOUNT} action={createAction} />
+						<CreateListDialog freeSlots={freeSlots} action={createAction} />
 					</div>
 				</header>
 
@@ -288,11 +303,12 @@ export default component$(() => {
 				{toggleFailure ? <p class="text-kumo-danger text-sm">{toggleFailure.error === 'multiple-matches' ? m.lists_error_policy_multiple() : m.lists_error_policy({ message: toggleFailure.message ?? '' })}</p> : null}
 
 				<div class="bg-kumo-base ring-kumo-line overflow-x-auto rounded-lg shadow-xs ring">
-					<table class="w-full min-w-[40rem] border-collapse">
+					<table class="w-full min-w-[48rem] border-collapse">
 						<thead class="border-kumo-line border-b">
 							<tr>
 								<th class={TH}>{m.lists_col_name()}</th>
 								<th class={TH}>{m.lists_col_entries()}</th>
+								<th class={TH}>{m.lists_col_lists()}</th>
 								<th class={TH}>{m.lists_col_updated()}</th>
 								<th class={TH}>DNS</th>
 								<th class={TH}>HTTP</th>
@@ -300,39 +316,48 @@ export default component$(() => {
 							</tr>
 						</thead>
 						<tbody class="divide-kumo-line divide-y">
-							{lists.value.lists.length === 0 ? (
+							{groups.length === 0 ? (
 								<tr>
-									<td colSpan={6} class="text-kumo-subtle px-3 py-8 text-center text-sm">
+									<td colSpan={7} class="text-kumo-subtle px-3 py-8 text-center text-sm">
 										{lists.value.failed ? m.lists_load_error() : m.lists_empty()}
 									</td>
 								</tr>
 							) : (
-								lists.value.lists.map((list) => {
-									const href = `/${accountId}/lists/${list.id}/`;
+								groups.map((group) => {
+									const href = `/${accountId}/lists/${group.primary.id}/`;
+									const chunkIds = group.chunks.map((chunk) => chunk.id);
+									const meta = group.meta;
+									// Entries were dropped and the group had room for more lists than it got - every account slot was taken, by other sources or by lists outside this app.
+									const slotLimited = meta !== undefined && group.count !== undefined && meta.sourceCount > group.count && group.chunks.length < meta.maxLists;
 
 									return (
-										<tr key={list.id} class="hover:bg-kumo-tint cursor-pointer" onClick$={() => nav(href)}>
+										<tr key={group.key} class="hover:bg-kumo-tint cursor-pointer" onClick$={() => nav(href)}>
 											<td class={TD}>
 												<Link prefetch="js" href={href} class="text-kumo-strong font-medium" onClick$={(event) => event.stopPropagation()}>
-													{list.name}
+													{group.primary.name}
 												</Link>
-												{list.meta ? null : <span class="text-kumo-subtle block text-xs">{m.lists_meta_missing()}</span>}
+												{meta ? null : <span class="text-kumo-subtle block text-xs">{m.lists_meta_missing()}</span>}
 											</td>
 											<td class={[TD, 'text-kumo-default whitespace-nowrap tabular-nums']}>
-												{list.count?.toLocaleString() ?? '–'}
-												{list.meta ? <span class="text-kumo-subtle"> / {list.meta.limit.toLocaleString()}</span> : null}
+												{group.count?.toLocaleString() ?? '–'}
+												{meta ? <span class="text-kumo-subtle"> / {(meta.limit * meta.maxLists).toLocaleString()}</span> : null}
+												{meta && group.count !== undefined && meta.sourceCount > group.count ? <span class="text-kumo-subtle block text-xs">{m.lists_truncated({ source: meta.sourceCount.toLocaleString() })}</span> : null}
 											</td>
-											<td class={[TD, 'text-kumo-default whitespace-nowrap']}>{formatDateTime(list.meta?.fetchedAt ?? list.updatedAt, locale.value, timezone.value.long) ?? '–'}</td>
+											<td class={[TD, 'text-kumo-default whitespace-nowrap tabular-nums']}>
+												{meta ? m.lists_chunks({ used: group.chunks.length.toLocaleString(), max: meta.maxLists.toLocaleString() }) : group.chunks.length.toLocaleString()}
+												{slotLimited ? <span class="text-kumo-danger block text-xs whitespace-normal">{m.lists_slot_limited()}</span> : null}
+											</td>
+											<td class={[TD, 'text-kumo-default whitespace-nowrap']}>{formatDateTime(meta?.fetchedAt ?? group.primary.updatedAt, locale.value, timezone.value.long) ?? '–'}</td>
 											<td class={TD}>
-												<PolicyListToggle listId={list.id} kind="dns" included={ruleIncludesList(dnsLookup, 'dns', list.id)} label={m.lists_toggle_dns()} action={toggleAction} />
+												<PolicyListToggle listIds={chunkIds} kind="dns" included={ruleIncludesAllLists(dnsLookup, 'dns', chunkIds)} label={m.lists_toggle_dns()} action={toggleAction} />
 											</td>
 											<td class={TD}>
-												<PolicyListToggle listId={list.id} kind="http" included={ruleIncludesList(httpLookup, 'http', list.id)} label={m.lists_toggle_http()} action={toggleAction} />
+												<PolicyListToggle listIds={chunkIds} kind="http" included={ruleIncludesAllLists(httpLookup, 'http', chunkIds)} label={m.lists_toggle_http()} action={toggleAction} />
 											</td>
 											<td class={[TD, 'max-w-xs']}>
-												{list.meta ? (
-													<a href={list.meta.url} target="_blank" rel="noreferrer" class="text-kumo-link inline-flex max-w-full items-center gap-1 underline" onClick$={(event) => event.stopPropagation()}>
-														<span class="truncate">{list.meta.url}</span>
+												{meta ? (
+													<a href={meta.url} target="_blank" rel="noreferrer" class="text-kumo-link inline-flex max-w-full items-center gap-1 underline" onClick$={(event) => event.stopPropagation()}>
+														<span class="truncate">{meta.url}</span>
 														<LuExternalLink class="size-3.5 shrink-0" />
 													</a>
 												) : (

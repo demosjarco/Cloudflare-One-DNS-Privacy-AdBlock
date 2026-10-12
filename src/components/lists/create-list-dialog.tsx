@@ -9,8 +9,8 @@ import { actionFailure, BUTTON_PRIMARY, BUTTON_SECONDARY, ENTRY_LIMIT_SUGGESTION
 import * as m from '~/paraglide/messages';
 
 export interface CreateListDialogProps {
-	/** Disables the trigger once the account is at Cloudflare's 100-list quota. */
-	quotaReached: boolean;
+	/** Cloudflare list slots left on the account (`100 - totalLists`): the ceiling of the "max lists" field, and `0` disables the trigger altogether. */
+	freeSlots: number;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	action: ActionStore<any, any>;
 }
@@ -18,12 +18,15 @@ export interface CreateListDialogProps {
 /**
  * A native `<dialog>` instead of Flowbite's modal: `showModal()` gives focus trapping, Escape-to-close and a top-layer backdrop for free, with no data-attribute wiring to keep in sync with Flowbite's init. A successful submit never closes it from here - the action redirects straight into the new list.
  */
-export const CreateListDialog = component$<CreateListDialogProps>(({ quotaReached, action }) => {
+export const CreateListDialog = component$<CreateListDialogProps>(({ freeSlots, action }) => {
 	const dialogRef = useSignal<HTMLDialogElement>();
+	// Mirrors of the two numeric inputs, only so the capacity line below them can update as the user types. The inputs themselves stay uncontrolled - the form posts their values, not these.
+	const limit = useSignal<number>(SUGGESTED_ENTRY_LIMITS.standard);
+	const maxLists = useSignal(1);
 
 	const failure = actionFailure(action.value);
 	let failureText: string | undefined;
-	if (failure?.validation) failureText = failure.invalidFields.includes('limit') ? m.lists_error_invalid_limit() : m.lists_error_invalid_url();
+	if (failure?.validation) failureText = failure.invalidFields.includes('limit') ? m.lists_error_invalid_limit() : failure.invalidFields.includes('maxLists') ? m.lists_error_invalid_max_lists() : m.lists_error_invalid_url();
 	else if (failure?.error === 'quota') failureText = m.lists_error_quota();
 	else if (failure?.error === 'duplicate') failureText = m.lists_error_duplicate();
 	else if (failure?.error === 'fetch-http') failureText = m.lists_error_fetch_http();
@@ -31,11 +34,15 @@ export const CreateListDialog = component$<CreateListDialogProps>(({ quotaReache
 	else if (failure?.error === 'fetch-empty') failureText = m.lists_error_fetch_empty();
 	else if (failure?.error === 'fetch-too-large') failureText = m.lists_error_fetch_too_large();
 	else if (failure?.error === 'cloudflare') failureText = m.lists_error_cloudflare({ message: failure.message ?? '' });
+	else if (failure?.error === 'multiple-matches') failureText = m.lists_error_policy_multiple();
 	else if (failure) failureText = m.lists_error_generic();
+
+	const effectiveLists = Math.min(Math.max(1, maxLists.value || 1), Math.max(1, freeSlots));
+	const capacity = Math.max(0, limit.value || 0) * effectiveLists;
 
 	return (
 		<>
-			<button type="button" class={BUTTON_PRIMARY} disabled={quotaReached} onClick$={() => dialogRef.value?.showModal()}>
+			<button type="button" class={BUTTON_PRIMARY} disabled={freeSlots < 1} onClick$={() => dialogRef.value?.showModal()}>
 				<LuPlus class="size-4" />
 				{m.lists_create_button()}
 			</button>
@@ -52,7 +59,7 @@ export const CreateListDialog = component$<CreateListDialogProps>(({ quotaReache
 
 					<label class="flex flex-col gap-1.5 text-sm">
 						<span class="text-kumo-default font-medium">{m.lists_limit_label()}</span>
-						<input type="number" name="limit" {...{ list: 'create-list-entry-limits' }} min={SUGGESTED_ENTRY_LIMITS.standard} step={1} required value={SUGGESTED_ENTRY_LIMITS.standard} class={[INPUT, 'w-full']} disabled={action.isRunning} />
+						<input type="number" name="limit" {...{ list: 'create-list-entry-limits' }} min={SUGGESTED_ENTRY_LIMITS.standard} step={1} required value={SUGGESTED_ENTRY_LIMITS.standard} class={[INPUT, 'w-full']} disabled={action.isRunning} onInput$={(_, element) => (limit.value = element.valueAsNumber)} />
 						<datalist id="create-list-entry-limits">
 							{ENTRY_LIMIT_SUGGESTIONS.map((option) => (
 								<option key={option.value} value={option.value}>
@@ -64,6 +71,13 @@ export const CreateListDialog = component$<CreateListDialogProps>(({ quotaReache
 					</label>
 
 					<label class="flex flex-col gap-1.5 text-sm">
+						<span class="text-kumo-default font-medium">{m.lists_max_lists_label()}</span>
+						<input type="number" name="maxLists" min={1} max={Math.max(1, freeSlots)} step={1} required value={1} class={[INPUT, 'w-full']} disabled={action.isRunning} onInput$={(_, element) => (maxLists.value = element.valueAsNumber)} />
+						<span class="text-kumo-subtle text-xs">{m.lists_max_lists_hint({ free: freeSlots.toLocaleString() })}</span>
+						<span class="text-kumo-default text-xs tabular-nums">{m.lists_capacity({ capacity: capacity.toLocaleString(), lists: effectiveLists.toLocaleString() })}</span>
+					</label>
+
+					<label class="flex flex-col gap-1.5 text-sm">
 						<span class="text-kumo-default font-medium">{m.lists_overflow_label()}</span>
 						<select name="overflow" class={[SELECT, 'w-full']} disabled={action.isRunning}>
 							{OVERFLOW_OPTIONS.map((option) => (
@@ -72,6 +86,7 @@ export const CreateListDialog = component$<CreateListDialogProps>(({ quotaReache
 								</option>
 							))}
 						</select>
+						<span class="text-kumo-subtle text-xs">{m.lists_overflow_hint()}</span>
 					</label>
 
 					{failureText ? <p class="text-kumo-danger text-sm">{failureText}</p> : null}

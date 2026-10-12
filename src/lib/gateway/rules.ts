@@ -24,16 +24,26 @@ export interface ManagedRuleLookup {
  * @link https://developers.cloudflare.com/api/resources/zero_trust/subresources/gateway/subresources/rules/methods/list/
  */
 export async function findManagedRule(apiToken: string, accountId: string, kind: PolicyKind, signal: AbortSignal): Promise<ManagedRuleLookup> {
+	return (await findManagedRules(apiToken, accountId, signal))[kind];
+}
+
+function matchManagedRule(allRules: GatewayRule[], kind: PolicyKind): ManagedRuleLookup {
+	const targetName = MANAGED_RULE_NAMES[kind].toLowerCase();
+	const matches = allRules.filter((rule) => rule.name?.trim().toLowerCase() === targetName && rule.filters.includes(filterFor(kind)));
+	return { rule: matches[0] ?? null, multipleMatches: matches.length > 1, failed: false };
+}
+
+/** Both managed rules from a single `rules.list()` read - the account's rules come back as one list anyway, so looking the two up separately just doubles the request. */
+export async function findManagedRules(apiToken: string, accountId: string, signal: AbortSignal): Promise<Record<PolicyKind, ManagedRuleLookup>> {
 	try {
 		const client = createClient({ apiToken, resources: [BaseRules] });
 		const allRules = await Array.fromAsync(client.zeroTrust.gateway.rules.list({ account_id: accountId }, { signal }));
-
-		const targetName = MANAGED_RULE_NAMES[kind].toLowerCase();
-		const matches = allRules.filter((rule) => rule.name?.trim().toLowerCase() === targetName && rule.filters.includes(filterFor(kind)));
-
-		return { rule: matches[0] ?? null, multipleMatches: matches.length > 1, failed: false };
+		return { dns: matchManagedRule(allRules, 'dns'), http: matchManagedRule(allRules, 'http') };
 	} catch (err) {
-		if (err instanceof APIError) return { rule: null, multipleMatches: false, failed: true };
+		if (err instanceof APIError) {
+			const failed: ManagedRuleLookup = { rule: null, multipleMatches: false, failed: true };
+			return { dns: failed, http: failed };
+		}
 		throw err;
 	}
 }
@@ -110,23 +120,32 @@ export async function deleteManagedRule(apiToken: string, accountId: string, rul
 export type ListMembershipResult = { ok: true; lookup: ManagedRuleLookup } | { ok: false; error: 'lookup-failed' | 'multiple-matches' };
 
 /**
- * Adds or removes one synced list's `any(<domains>[*] in $<id>)` clause from the managed rule of the given kind, carrying every other clause (categories, other lists, DNS locations) through untouched.
+ * Adds or removes a set of synced lists' `any(<domains>[*] in $<id>)` clauses from the managed rule of the given kind in one write, carrying every other clause (categories, other lists, DNS locations) through untouched. A set rather than one id because a chunked source is several Cloudflare lists that must flip together - see `ManagedListGroup` in `lists.ts`.
  *
- * - No managed rule yet and `included`: the rule is created (enabled) with just this list - the policies page is where categories get added afterwards.
+ * - No managed rule yet and `included`: the rule is created (enabled) with just these lists - the policies page is where categories get added afterwards.
  * - Removing the last clause leaves nothing for Cloudflare to match on (an empty `traffic` is rejected), so the rule is deleted instead - the same end state as the tri-state control's "Deleted".
- * - Already in the requested state: no write at all.
+ * - Already in the requested state (every id present, or every id absent): no write at all. A partially-wired set is completed/cleared, which is how an interrupted sync heals on the next one.
+ *
+ * Untested: how long a `traffic` expression Cloudflare accepts. A hundred chunk clauses is ~6 KB; if the rules API rejects that, its error surfaces verbatim.
  */
-export async function setManagedRuleListMembership(apiToken: string, accountId: string, kind: PolicyKind, listId: string, included: boolean, signal: AbortSignal): Promise<ListMembershipResult> {
+export async function setManagedRuleListMembership(apiToken: string, accountId: string, kind: PolicyKind, listIds: string[], included: boolean, signal: AbortSignal): Promise<ListMembershipResult> {
 	const lookup = await findManagedRule(apiToken, accountId, kind, signal);
 	if (lookup.failed) return { ok: false, error: 'lookup-failed' };
 	if (lookup.multipleMatches) return { ok: false, error: 'multiple-matches' };
 
 	const selection = lookup.rule ? parseTraffic(kind, lookup.rule.traffic) : { categoryIds: [], securityCategoryIds: [], listIds: [], locationIds: [] };
-	const target = listId.toLowerCase();
-	const alreadyIncluded = selection.listIds.some((id) => id.toLowerCase() === target);
-	if (alreadyIncluded === included) return { ok: true, lookup };
+	const present = new Set(selection.listIds.map((id) => id.toLowerCase()));
+	const targets = new Set(listIds.map((id) => id.toLowerCase()));
 
-	selection.listIds = included ? [...selection.listIds, listId] : selection.listIds.filter((id) => id.toLowerCase() !== target);
+	if (included) {
+		const missing = listIds.filter((id) => !present.has(id.toLowerCase()));
+		if (missing.length === 0) return { ok: true, lookup };
+		selection.listIds = [...selection.listIds, ...missing];
+	} else {
+		const remaining = selection.listIds.filter((id) => !targets.has(id.toLowerCase()));
+		if (remaining.length === selection.listIds.length) return { ok: true, lookup };
+		selection.listIds = remaining;
+	}
 	const traffic = buildTraffic(kind, selection);
 
 	if (!traffic) {
@@ -138,9 +157,20 @@ export async function setManagedRuleListMembership(apiToken: string, accountId: 
 	return { ok: true, lookup: { rule, multipleMatches: false, failed: false } };
 }
 
-/** Case-insensitive "is this list referenced by this rule" read, for the lists table's DNS/HTTP toggles. */
-export function ruleIncludesList(lookup: ManagedRuleLookup, kind: PolicyKind, listId: string) {
-	if (!lookup.rule) return false;
-	const target = listId.toLowerCase();
-	return parseTraffic(kind, lookup.rule.traffic).listIds.some((id) => id.toLowerCase() === target);
+function referencedListIds(lookup: ManagedRuleLookup, kind: PolicyKind) {
+	if (!lookup.rule) return new Set<string>();
+	return new Set(parseTraffic(kind, lookup.rule.traffic).listIds.map((id) => id.toLowerCase()));
+}
+
+/** Case-insensitive "is every one of these lists referenced by this rule" read, for the DNS/HTTP toggles: a group whose chunks are only partly wired (an interrupted sync) renders off, and flipping it on wires the rest. */
+export function ruleIncludesAllLists(lookup: ManagedRuleLookup, kind: PolicyKind, listIds: string[]) {
+	if (listIds.length === 0) return false;
+	const referenced = referencedListIds(lookup, kind);
+	return listIds.every((id) => referenced.has(id.toLowerCase()));
+}
+
+/** Case-insensitive "is any of these lists referenced by this rule" read - the signal a sync uses to decide whether a group is meant to be in the rule at all. */
+export function ruleIncludesAnyList(lookup: ManagedRuleLookup, kind: PolicyKind, listIds: string[]) {
+	const referenced = referencedListIds(lookup, kind);
+	return listIds.some((id) => referenced.has(id.toLowerCase()));
 }

@@ -2,8 +2,8 @@ import { component$, Slot } from '@builder.io/qwik';
 import { routeAction$, routeLoader$, zod$, type RequestHandler } from '@builder.io/qwik-city';
 import { APIError } from 'cloudflare';
 import * as zm from 'zod/mini';
-import { getActionCloudflareAccessToken } from '~/lib/auth/cloudflare-token';
-import { findManagedRule, setManagedRuleListMembership, type ManagedRuleLookup } from '~/lib/gateway/rules';
+import { getCloudflareAccessToken } from '~/lib/auth/cloudflare-token';
+import { findManagedRules, setManagedRuleListMembership, type ManagedRuleLookup } from '~/lib/gateway/rules';
 import { useAuthToken } from '~/routes/layout';
 
 export const onRequest: RequestHandler = ({ params, redirect }) => {
@@ -30,22 +30,20 @@ export const useManagedRules = routeLoader$(async ({ resolveValue, params, platf
 	const accountId = params['accountId']!;
 	const signal = (platform.request ?? request).signal;
 
-	const [dns, http] = await Promise.all([findManagedRule(token.cloudflare.accessToken, accountId, 'dns', signal), findManagedRule(token.cloudflare.accessToken, accountId, 'http', signal)]);
-
-	return { dns, http };
+	return findManagedRules(token.cloudflare.accessToken, accountId, signal);
 });
 
 /**
- * Flips one synced list's membership in the managed DNS or HTTP rule. The checkbox is only present in the form data when checked, so a missing `included` means "remove".
+ * Flips one synced source's membership in the managed DNS or HTTP rule - every Cloudflare list the source is chunked across, in one write. The checkbox is only present in the form data when checked, so a missing `included` means "remove".
  * See the `zod$` callback note on `useUpdatePolicy` in `./index.tsx` for why the schema is built from qwik-city's bundled zod.
  */
 export const useToggleListPolicy = routeAction$(
 	async (data, event) => {
-		const apiToken = await getActionCloudflareAccessToken(event);
+		const apiToken = await getCloudflareAccessToken(event);
 		if (!apiToken) return event.fail(401, { error: 'no-token' });
 
 		try {
-			const result = await setManagedRuleListMembership(apiToken, event.params['accountId']!, data.kind, data.listId, data.included, (event.platform.request ?? event.request).signal);
+			const result = await setManagedRuleListMembership(apiToken, event.params['accountId']!, data.kind, data.listIds, data.included, (event.platform.request ?? event.request).signal);
 			if (!result.ok) return event.fail(result.error === 'multiple-matches' ? 409 : 502, { error: result.error });
 			return { ok: true as const };
 		} catch (err) {
@@ -55,7 +53,7 @@ export const useToggleListPolicy = routeAction$(
 	},
 	zod$((z) =>
 		z.object({
-			listId: z.string().uuid(),
+			listIds: z.array(z.string().uuid()).min(1),
 			kind: z.enum(['dns', 'http']),
 			included: z.coerce.boolean().optional().default(false),
 		}),
