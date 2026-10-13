@@ -1,10 +1,17 @@
 import { component$, Slot } from '@builder.io/qwik';
-import { routeAction$, routeLoader$, zod$, type RequestHandler } from '@builder.io/qwik-city';
+import { routeAction$, routeLoader$, useLocation, zod$, type RequestHandler } from '@builder.io/qwik-city';
+import { LuExternalLink, LuRefreshCw } from '@qwikest/icons/lucide';
 import { APIError } from 'cloudflare';
 import * as zm from 'zod/mini';
+import { BUTTON_PRIMARY, BUTTON_SECONDARY } from '~/components/lists/shared';
 import { getCloudflareAccessToken } from '~/lib/auth/cloudflare-token';
+import { isZeroTrustInitialized, zeroTrustSetupUrl } from '~/lib/gateway/onboarding';
 import { findManagedRules, setManagedRuleListMembership, type ManagedRuleLookup } from '~/lib/gateway/rules';
 import { useAuthToken } from '~/routes/layout';
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore this gets generated automatically later in the build process
+import * as m from '~/paraglide/messages';
 
 export const onRequest: RequestHandler = ({ params, redirect }) => {
 	const validAccountId = zm.validate(
@@ -17,6 +24,14 @@ export const onRequest: RequestHandler = ({ params, redirect }) => {
 	// Not valid account id
 	if (!validAccountId) throw redirect(302, '/');
 };
+
+/** Whether the account has a Zero Trust organization yet. Only a definite "not initialized" answer is `false`, so a transient Cloudflare error never swaps the page for the setup prompt. */
+export const useZeroTrustInitialized = routeLoader$(async ({ resolveValue, params, platform, request }) => {
+	const token = await resolveValue(useAuthToken);
+	if (!token?.cloudflare?.accessToken) return true;
+
+	return isZeroTrustInitialized(token.cloudflare.accessToken, params['accountId']!, (platform.request ?? request).signal);
+});
 
 /**
  * The managed DNS/HTTP rules, resolved once per request for every page under this account: the policy cards' tri-state is always this read of Cloudflare's account (deleted when no managed rule exists, otherwise the rule's own `enabled` flag), and the synced-list toggles (one pair per list row / detail header) derive membership from the same two lookups - never a lookup per row.
@@ -60,4 +75,27 @@ export const useToggleListPolicy = routeAction$(
 	),
 );
 
-export default component$(() => <Slot />);
+export default component$(() => {
+	const initialized = useZeroTrustInitialized();
+	const location = useLocation();
+
+	if (initialized.value) return <Slot />;
+
+	return (
+		<div class="flex max-w-xl flex-col gap-3">
+			<h1 class="text-lg font-semibold">{m.zero_trust_setup_heading()}</h1>
+			<p class="text-kumo-subtle text-sm">{m.zero_trust_setup_body()}</p>
+			<div class="flex flex-wrap gap-2">
+				<a href={zeroTrustSetupUrl(location.params['accountId']!)} target="_blank" rel="noreferrer" class={BUTTON_PRIMARY}>
+					{m.zero_trust_setup_open()}
+					<LuExternalLink class="size-4" />
+				</a>
+				{/* Plain anchor on purpose: a full reload is what re-runs `useZeroTrustInitialized`. */}
+				<a href={location.url.pathname} class={BUTTON_SECONDARY}>
+					<LuRefreshCw class="size-4" />
+					{m.zero_trust_setup_refresh()}
+				</a>
+			</div>
+		</div>
+	);
+});

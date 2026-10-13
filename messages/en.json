@@ -135,5 +135,9 @@
 	"sidebar_theme_light": "Light",
 	"sidebar_theme_system": "System",
 	"sidebar_theme_toggle_label": "Color theme",
-	"sidebar_unknown_user": "Unknown user"
+	"sidebar_unknown_user": "Unknown user",
+	"zero_trust_setup_body": "This Cloudflare account hasn't been set up for Zero Trust yet. Finish the setup in the Cloudflare dashboard, then come back and refresh.",
+	"zero_trust_setup_heading": "Set up Zero Trust first",
+	"zero_trust_setup_open": "Open Zero Trust setup",
+	"zero_trust_setup_refresh": "I've finished setup - refresh"
 }
