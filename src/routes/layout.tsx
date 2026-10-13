@@ -11,6 +11,7 @@ import { createClient } from 'cloudflare/tree-shakable';
 import { THEME_COOKIE_NAME, themePreferenceSchema } from '~/components/theme-toggle/theme-shared';
 import { ThemeToggle } from '~/components/theme-toggle/theme-toggle';
 import { readVerifiedAccounts, writeVerifiedAccounts, type VerifiedAccount } from '~/lib/auth/verified-memberships-cache';
+import { setIssueContext } from '~/lib/tracing';
 import { useSignOut } from '~/routes/plugin@auth';
 import { locales as inlangLocales } from '../../project.inlang/settings.json' with { type: 'json' };
 
@@ -242,6 +243,7 @@ const useCurrentUser = routeLoader$(({ resolveValue, platform, request }) => asy
 		try {
 			const client = createClient({ apiToken: token.cloudflare.accessToken, resources: [BaseUser] });
 			const me = await client.user.get({ signal: (platform.request ?? request).signal });
+			setIssueContext(platform, { userId: me.id });
 
 			return { email: me.email, name: [me.first_name, me.last_name].filter(Boolean).join(' ') || undefined } as const;
 		} catch (err) {

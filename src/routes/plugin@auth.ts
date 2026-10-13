@@ -1,6 +1,7 @@
 import { QwikAuth$ } from '@auth/qwik';
 import Cloudflare from '~/lib/auth/cloudflare-provider';
 import { accountToCloudflareTokenSet, refreshCloudflareTokenSet } from '~/lib/auth/cloudflare-token';
+import { setIssueContext } from '~/lib/tracing';
 
 export const { onRequest, useSession, useSignIn, useSignOut } = QwikAuth$(({ platform }) => ({
 	providers: [
@@ -11,6 +12,11 @@ export const { onRequest, useSession, useSignIn, useSignOut } = QwikAuth$(({ pla
 	],
 	callbacks: {
 		async jwt({ token, account }) {
+			// Runs on sign-in and on every authenticated request (qwik-auth's `onRequest` resolves the session each time), so this is the earliest point with the decoded token - no second JWT decrypt just for tracing.
+			// With no adapter, auth.js sets the JWT `sub` to a fresh `crypto.randomUUID()` on every sign-in (see `getUserAndAccount` in `@auth/core/lib/actions/callback/oauth/callback.js`) - not a Cloudflare id, but a stable session id for the life of this login.
+			// `user.id` is set from `GET /user` in `useCurrentUser` (`~/routes/layout.tsx`) instead, only when the `user-details.read` scope allows it.
+			setIssueContext(platform, { sessionId: token.sub });
+
 			// Initial sign-in: stash the token set issued for the Zero Trust API calls this app makes on the user's behalf.
 			if (account?.provider === 'cloudflare') {
 				token.cloudflare = accountToCloudflareTokenSet(account);
