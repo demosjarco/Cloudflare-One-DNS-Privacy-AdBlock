@@ -1,12 +1,15 @@
 import { component$, useSignal, useTask$ } from '@builder.io/qwik';
 import { Form, type ActionStore } from '@builder.io/qwik-city';
+import { actionFailure } from '~/components/lists/shared';
 import type { ManagedCategory } from '~/lib/gateway/categories';
 import type { Location } from '~/lib/gateway/locations';
 import type { PolicyKind } from '~/lib/gateway/policy-expression';
+import { ZERO_TRUST_UNINITIALIZED } from '~/lib/gateway/zero-trust';
 import { CategoryToggles } from './category-toggles';
 import { LocationDrawer } from './location-drawer';
 import { LocationScope } from './location-scope';
 import { TriStateControl, type PolicyState } from './tri-state-control';
+import { ZeroTrustSetupNotice } from './zero-trust-setup-notice';
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore this gets generated automatically later in the build process
@@ -45,6 +48,7 @@ export const TrafficPolicyCard = component$<TrafficPolicyCardProps>(({ kind, acc
 	const disabled = action.isRunning;
 	// From `deleted`, an empty selection is fine - `useUpdatePolicy` creates the rule with every managed category.
 	const enableDisableBlocked = state !== 'deleted' && checkedCount.value === 0 && listCount === 0;
+	const failure = actionFailure(action.value);
 
 	return (
 		<Form ref={formRef} action={action} class={CARD_SURFACE}>
@@ -55,6 +59,8 @@ export const TrafficPolicyCard = component$<TrafficPolicyCardProps>(({ kind, acc
 				<h2 class="text-kumo-strong text-lg font-semibold">{title}</h2>
 				<TriStateControl current={state} isRunning={action.isRunning} enableDisableBlocked={enableDisableBlocked} deleteConfirmMessage={m.gateway_state_deleted_confirm()} />
 			</header>
+
+			{failure?.error === ZERO_TRUST_UNINITIALIZED ? <ZeroTrustSetupNotice /> : failure?.error === 'cloudflare' ? <p class="text-kumo-danger text-sm">{m.lists_error_policy({ message: failure.message ?? '' })}</p> : failure && failure.error !== 'multiple-matches' ? <p class="text-kumo-danger text-sm">{m.lists_error_generic()}</p> : null}
 
 			{multipleMatches ? <p class="text-kumo-danger text-sm">{kind === 'dns' ? m.gateway_policy_multiple_matches_dns() : m.gateway_policy_multiple_matches_http()}</p> : null}
 

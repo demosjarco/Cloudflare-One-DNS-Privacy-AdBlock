@@ -72,7 +72,7 @@
 	"lists_detail_page_loading": "正在載入條目...",
 	"lists_empty": "目前沒有同步清單。建立一個以匯入 Pi-hole 相容的封鎖清單。",
 	"lists_entries": "{count} 的 {limit} 條目",
-	"lists_error_cloudflare": "Cloudflare 拒絕了該請求：\n\n```json\n\\{\n  \"status\": \"error\",\n  \"code\": 1006,\n  \"message\": \"存取被拒絕：您的 IP 位址已被 Cloudflare 封鎖\"\n\\}\n```\n\n這是因為您的 IP 位址被 Cloudflare 的安全系統標記為可疑或濫用。可能的原因包括：\n\n1. IP 位址屬於已知的惡意來源\n2. 短時間內發送過多請求（速率限制）\n3. 使用了 VPN 或代理伺服器\n4. 先前的行為觸發了安全規則\n\n**建議解決方案：**\n- 更換 IP 位址或重新啟動路由器\n- 停用 VPN/代理後重試\n- 等待一段時間後再嘗試\n- 如認為是誤判，可聯繫 Cloudflare 申訴 {message}",
+	"lists_error_cloudflare": "Cloudflare 拒絕了該請求：{message}",
 	"lists_error_duplicate": "此網址的同步清單已存在。",
 	"lists_error_fetch_empty": "該 URL 中找不到有效的主機名稱。",
 	"lists_error_fetch_http": "封鎖清單 URL 回應了錯誤。",
@@ -135,5 +135,9 @@
 	"sidebar_theme_light": "光",
 	"sidebar_theme_system": "系统",
 	"sidebar_theme_toggle_label": "配色方案",
-	"sidebar_unknown_user": "未知使用者"
+	"sidebar_unknown_user": "未知使用者",
+	"zero_trust_setup_heading": "完成 Cloudflare Zero Trust 設定",
+	"zero_trust_setup_link": "開啟 Zero Trust 設定",
+	"zero_trust_setup_message": "此帳戶尚未完成 Cloudflare Zero Trust 的初始設定，因此 Cloudflare 不會接受其政策或清單。請在 Cloudflare 儀表板中完成設定，然後返回並重新整理此頁面。",
+	"zero_trust_setup_refresh": "重新整理"
 }

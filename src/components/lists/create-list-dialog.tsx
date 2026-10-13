@@ -1,7 +1,9 @@
 import { component$, useSignal } from '@builder.io/qwik';
 import { Form, type ActionStore } from '@builder.io/qwik-city';
 import { LuPlus } from '@qwikest/icons/lucide';
+import { ZeroTrustSetupNotice } from '~/components/gateway/zero-trust-setup-notice';
 import { SUGGESTED_ENTRY_LIMITS } from '~/lib/gateway/lists';
+import { ZERO_TRUST_UNINITIALIZED } from '~/lib/gateway/zero-trust';
 import { actionFailure, BUTTON_PRIMARY, BUTTON_SECONDARY, ENTRY_LIMIT_SUGGESTIONS, INPUT, OVERFLOW_OPTIONS, SELECT } from './shared';
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -33,6 +35,7 @@ export const CreateListDialog = component$<CreateListDialogProps>(({ freeSlots, 
 	else if (failure?.error === 'fetch-network') failureText = m.lists_error_fetch_network();
 	else if (failure?.error === 'fetch-empty') failureText = m.lists_error_fetch_empty();
 	else if (failure?.error === 'fetch-too-large') failureText = m.lists_error_fetch_too_large();
+	else if (failure?.error === ZERO_TRUST_UNINITIALIZED) failureText = undefined;
 	else if (failure?.error === 'cloudflare') failureText = m.lists_error_cloudflare({ message: failure.message ?? '' });
 	else if (failure?.error === 'multiple-matches') failureText = m.lists_error_policy_multiple();
 	else if (failure) failureText = m.lists_error_generic();
@@ -89,6 +92,7 @@ export const CreateListDialog = component$<CreateListDialogProps>(({ freeSlots, 
 						<span class="text-kumo-subtle text-xs">{m.lists_overflow_hint()}</span>
 					</label>
 
+					{failure?.error === ZERO_TRUST_UNINITIALIZED ? <ZeroTrustSetupNotice /> : null}
 					{failureText ? <p class="text-kumo-danger text-sm">{failureText}</p> : null}
 
 					<div class="flex justify-end gap-2">

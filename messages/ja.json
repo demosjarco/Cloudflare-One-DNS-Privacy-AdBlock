@@ -135,5 +135,9 @@
 	"sidebar_theme_light": "光",
 	"sidebar_theme_system": "システム",
 	"sidebar_theme_toggle_label": "カラーテーマ",
-	"sidebar_unknown_user": "不明なユーザー"
+	"sidebar_unknown_user": "不明なユーザー",
+	"zero_trust_setup_heading": "Cloudflare Zero Trust のセットアップを完了してください",
+	"zero_trust_setup_link": "Zero Trust のセットアップを開く",
+	"zero_trust_setup_message": "このアカウントは Cloudflare Zero Trust のオンボーディングがまだ完了していないため、Cloudflare はポリシーやリストを受け付けません。Cloudflare ダッシュボードでセットアップを完了してから、このページに戻って再読み込みしてください。",
+	"zero_trust_setup_refresh": "再読み込み"
 }

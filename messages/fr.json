@@ -135,5 +135,9 @@
 	"sidebar_theme_light": "Lumière",
 	"sidebar_theme_system": "Système",
 	"sidebar_theme_toggle_label": "Thème de couleur",
-	"sidebar_unknown_user": "Utilisateur inconnu"
+	"sidebar_unknown_user": "Utilisateur inconnu",
+	"zero_trust_setup_heading": "Terminez la configuration de Cloudflare Zero Trust",
+	"zero_trust_setup_link": "Ouvrir la configuration Zero Trust",
+	"zero_trust_setup_message": "Ce compte n'a pas encore terminé l'intégration à Cloudflare Zero Trust, Cloudflare n'accepte donc ni stratégies ni listes pour lui. Terminez la configuration dans le tableau de bord Cloudflare, puis revenez et actualisez cette page.",
+	"zero_trust_setup_refresh": "Actualiser"
 }

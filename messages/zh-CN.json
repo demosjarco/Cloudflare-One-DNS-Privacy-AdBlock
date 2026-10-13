@@ -135,5 +135,9 @@
 	"sidebar_theme_light": "光",
 	"sidebar_theme_system": "系统",
 	"sidebar_theme_toggle_label": "颜色主题",
-	"sidebar_unknown_user": "未知用户"
+	"sidebar_unknown_user": "未知用户",
+	"zero_trust_setup_heading": "完成 Cloudflare Zero Trust 设置",
+	"zero_trust_setup_link": "打开 Zero Trust 设置",
+	"zero_trust_setup_message": "此账户尚未完成 Cloudflare Zero Trust 的初始设置，因此 Cloudflare 不接受它的策略或列表。请在 Cloudflare 仪表板中完成设置，然后返回并刷新此页面。",
+	"zero_trust_setup_refresh": "刷新"
 }

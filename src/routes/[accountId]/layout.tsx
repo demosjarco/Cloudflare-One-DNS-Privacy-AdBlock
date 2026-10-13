@@ -3,7 +3,9 @@ import { routeAction$, routeLoader$, zod$, type RequestHandler } from '@builder.
 import { APIError } from 'cloudflare';
 import * as zm from 'zod/mini';
 import { getCloudflareAccessToken } from '~/lib/auth/cloudflare-token';
+import { isZeroTrustUninitialized } from '~/lib/gateway/list-sync';
 import { findManagedRules, setManagedRuleListMembership, type ManagedRuleLookup } from '~/lib/gateway/rules';
+import { ZERO_TRUST_UNINITIALIZED } from '~/lib/gateway/zero-trust';
 import { setIssueContext } from '~/lib/tracing';
 import { useAuthToken } from '~/routes/layout';
 
@@ -50,6 +52,7 @@ export const useToggleListPolicy = routeAction$(
 			if (!result.ok) return event.fail(result.error === 'multiple-matches' ? 409 : 502, { error: result.error });
 			return { ok: true as const };
 		} catch (err) {
+			if (isZeroTrustUninitialized(err)) return event.fail(412, { error: ZERO_TRUST_UNINITIALIZED, message: err.message });
 			if (err instanceof APIError) return event.fail(typeof err.status === 'number' ? err.status : 502, { error: 'cloudflare', message: err.message });
 			throw err;
 		}

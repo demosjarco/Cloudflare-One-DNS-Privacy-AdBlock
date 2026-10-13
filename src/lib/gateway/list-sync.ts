@@ -4,8 +4,9 @@ import { BlocklistFetchError, fetchPiholeBlocklist, type OverflowStrategy } from
 import { chunkNameFrom, createManagedList, deleteManagedList, managedListNameFor, MAX_LISTS_PER_ACCOUNT, replaceManagedListContents, type ManagedList, type ManagedListMeta } from '~/lib/gateway/lists';
 import type { PolicyKind } from '~/lib/gateway/policy-expression';
 import { findManagedRules, ruleIncludesAnyList, setManagedRuleListMembership } from '~/lib/gateway/rules';
+import { ZERO_TRUST_UNINITIALIZED } from '~/lib/gateway/zero-trust';
 
-export type ListSyncErrorCode = 'fetch-http' | 'fetch-network' | 'fetch-empty' | 'fetch-too-large' | 'cloudflare' | 'lookup-failed' | 'multiple-matches';
+export type ListSyncErrorCode = 'fetch-http' | 'fetch-network' | 'fetch-empty' | 'fetch-too-large' | 'cloudflare' | typeof ZERO_TRUST_UNINITIALIZED | 'lookup-failed' | 'multiple-matches';
 
 const POLICY_KINDS: readonly PolicyKind[] = ['dns', 'http'];
 
@@ -148,6 +149,14 @@ export function classifySyncError(err: unknown): { status: number; error: ListSy
 		return { status, error: `fetch-${err.code}` as const, message: err.message };
 	}
 	if (err instanceof ListSyncRuleError) return { status: err.code === 'multiple-matches' ? 409 : 502, error: err.code, message: err.message };
+	if (isZeroTrustUninitialized(err)) return { status: 412, error: ZERO_TRUST_UNINITIALIZED, message: err.message };
 	if (err instanceof APIError) return { status: typeof err.status === 'number' ? err.status : 502, error: 'cloudflare', message: err.message };
 	throw err;
+}
+
+/**
+ * Cloudflare answers Gateway writes on an account that never went through Zero Trust onboarding with `401` + error `1001` "Account ID is invalid or has not been initialized." - observed live on `rules.create`, while `rules.list` on the same account succeeded with no rules, so the page's reads can't spot it ahead of time. The account id is format-checked in the `[accountId]` layout and comes from the user's own account list, so `1001` here means "not onboarded", not a typo.
+ */
+export function isZeroTrustUninitialized(err: unknown): err is APIError {
+	return err instanceof APIError && err.errors.some((error) => error.code === 1001);
 }

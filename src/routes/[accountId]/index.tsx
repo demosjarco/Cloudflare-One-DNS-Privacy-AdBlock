@@ -4,6 +4,7 @@ import { LuExternalLink, LuRefreshCw } from '@qwikest/icons/lucide';
 import { TrafficPolicyCard } from '~/components/gateway/traffic-policy-card';
 import { type PolicyState } from '~/components/gateway/tri-state-control';
 import { CreateListDialog } from '~/components/lists/create-list-dialog';
+import { ZeroTrustSetupNotice } from '~/components/gateway/zero-trust-setup-notice';
 import { PolicyListToggle } from '~/components/lists/policy-list-toggle';
 import { actionFailure, BUTTON_SECONDARY } from '~/components/lists/shared';
 import { getCloudflareAccessToken } from '~/lib/auth/cloudflare-token';
@@ -14,6 +15,7 @@ import { classifySyncError, createSerialQueue, syncListGroup } from '~/lib/gatew
 import { findGroupByUrl, findManagedLists, isValidEntryLimit, MAX_LISTS_PER_ACCOUNT, type ManagedListGroup } from '~/lib/gateway/lists';
 import { listDnsLocations } from '~/lib/gateway/locations';
 import { buildTraffic, parseTraffic, type PolicyKind } from '~/lib/gateway/policy-expression';
+import { ZERO_TRUST_UNINITIALIZED } from '~/lib/gateway/zero-trust';
 import { createManagedRule, deleteManagedRule, findManagedRule, ruleIncludesAllLists, ruleIncludesAnyList, updateManagedRuleFull, type ManagedRuleLookup } from '~/lib/gateway/rules';
 import { useAuthToken, useLocale, useTimezone } from '~/routes/layout';
 import { useManagedRules, useToggleListPolicy } from './layout';
@@ -83,7 +85,14 @@ export const useUpdatePolicy = routeAction$(
 		const desired = data.state ?? data.currentState;
 
 		if (desired === 'deleted') {
-			if (lookup.rule?.id) await deleteManagedRule(apiToken, accountId, lookup.rule.id, signal);
+			if (lookup.rule?.id) {
+				try {
+					await deleteManagedRule(apiToken, accountId, lookup.rule.id, signal);
+				} catch (err) {
+					const classified = classifySyncError(err);
+					return event.fail(classified.status, { error: classified.error, message: classified.message });
+				}
+			}
 			return { ok: true as const };
 		}
 
@@ -107,8 +116,14 @@ export const useUpdatePolicy = routeAction$(
 		if (!traffic) return event.fail(400, { error: 'empty-selection' });
 
 		const enabled = desired === 'enabled';
-		if (lookup.rule) await updateManagedRuleFull(apiToken, accountId, lookup.rule, { enabled, traffic }, signal);
-		else await createManagedRule(apiToken, accountId, data.kind, { enabled, traffic }, signal);
+		try {
+			if (lookup.rule) await updateManagedRuleFull(apiToken, accountId, lookup.rule, { enabled, traffic }, signal);
+			else await createManagedRule(apiToken, accountId, data.kind, { enabled, traffic }, signal);
+		} catch (err) {
+			// Same Cloudflare-error mapping as the list actions - most visibly a never-onboarded Zero Trust account, which only fails here, on the first write.
+			const classified = classifySyncError(err);
+			return event.fail(classified.status, { error: classified.error, message: classified.message });
+		}
 
 		return { ok: true as const };
 	},
@@ -300,7 +315,7 @@ export default component$(() => {
 				) : null}
 				{refreshAllFailure ? <p class="text-kumo-danger text-sm">{m.lists_error_generic()}</p> : null}
 
-				{toggleFailure ? <p class="text-kumo-danger text-sm">{toggleFailure.error === 'multiple-matches' ? m.lists_error_policy_multiple() : m.lists_error_policy({ message: toggleFailure.message ?? '' })}</p> : null}
+				{toggleFailure?.error === ZERO_TRUST_UNINITIALIZED ? <ZeroTrustSetupNotice /> : toggleFailure ? <p class="text-kumo-danger text-sm">{toggleFailure.error === 'multiple-matches' ? m.lists_error_policy_multiple() : m.lists_error_policy({ message: toggleFailure.message ?? '' })}</p> : null}
 
 				<div class="bg-kumo-base ring-kumo-line overflow-x-auto rounded-lg shadow-xs ring">
 					<table class="w-full min-w-[48rem] border-collapse">

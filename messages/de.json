@@ -135,5 +135,9 @@
 	"sidebar_theme_light": "Licht",
 	"sidebar_theme_system": "System",
 	"sidebar_theme_toggle_label": "Farbschema",
-	"sidebar_unknown_user": "Unbekannter Benutzer"
+	"sidebar_unknown_user": "Unbekannter Benutzer",
+	"zero_trust_setup_heading": "Einrichtung von Cloudflare Zero Trust abschließen",
+	"zero_trust_setup_link": "Zero-Trust-Einrichtung öffnen",
+	"zero_trust_setup_message": "Für dieses Konto wurde das Onboarding von Cloudflare Zero Trust noch nicht abgeschlossen, daher nimmt Cloudflare keine Richtlinien oder Listen dafür an. Schließen Sie die Einrichtung im Cloudflare-Dashboard ab, kehren Sie dann hierher zurück und laden Sie diese Seite neu.",
+	"zero_trust_setup_refresh": "Neu laden"
 }

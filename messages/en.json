@@ -135,5 +135,9 @@
 	"sidebar_theme_light": "Light",
 	"sidebar_theme_system": "System",
 	"sidebar_theme_toggle_label": "Color theme",
-	"sidebar_unknown_user": "Unknown user"
+	"sidebar_unknown_user": "Unknown user",
+	"zero_trust_setup_heading": "Finish setting up Cloudflare Zero Trust",
+	"zero_trust_setup_link": "Open Zero Trust setup",
+	"zero_trust_setup_message": "This account hasn't been through Cloudflare Zero Trust onboarding yet, so Cloudflare won't accept policies or lists for it. Complete the setup in the Cloudflare dashboard, then come back and refresh this page.",
+	"zero_trust_setup_refresh": "Refresh"
 }
