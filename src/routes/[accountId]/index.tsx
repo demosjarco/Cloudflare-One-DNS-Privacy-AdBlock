@@ -1,5 +1,6 @@
 import { component$ } from '@builder.io/qwik';
-import { Form, Link, routeAction$, routeLoader$, useLocation, useNavigate, zod$, type DocumentHead } from '@builder.io/qwik-city';
+import { Form, Link, routeAction$, routeLoader$, useLocation, useNavigate, zod$, type DocumentHead, type RequestEventAction } from '@builder.io/qwik-city';
+import { APIError } from 'cloudflare';
 import { LuExternalLink, LuRefreshCw } from '@qwikest/icons/lucide';
 import { TrafficPolicyCard } from '~/components/gateway/traffic-policy-card';
 import { type PolicyState } from '~/components/gateway/tri-state-control';
@@ -57,6 +58,13 @@ const useManagedLists = routeLoader$(async ({ resolveValue, params, platform, re
 	return findManagedLists(token.cloudflare.accessToken, params['accountId']!, (platform.request ?? request).signal);
 });
 
+/** Cloudflare rejecting a rule write (e.g. 401 1001 "Account ID is invalid or has not been initialized") is an expected failure, not a bug: log it - the Worker would otherwise surface it only as an unhandled 500 - and hand the status/message back to the form. Anything that isn't an `APIError` is rethrown. */
+function failCloudflare(err: unknown, event: RequestEventAction) {
+	if (!(err instanceof APIError)) throw err;
+	console.error('Cloudflare Gateway rule write failed', err);
+	return event.fail(typeof err.status === 'number' ? err.status : 502, { error: 'cloudflare', message: err.message });
+}
+
 /**
  * One action shared by both cards (each card calls this hook itself, giving each its own independent
  * `isRunning`/fade state - see `traffic-policy-card.tsx`). Handles every tri-state transition described in
@@ -83,7 +91,13 @@ export const useUpdatePolicy = routeAction$(
 		const desired = data.state ?? data.currentState;
 
 		if (desired === 'deleted') {
-			if (lookup.rule?.id) await deleteManagedRule(apiToken, accountId, lookup.rule.id, signal);
+			if (lookup.rule?.id) {
+				try {
+					await deleteManagedRule(apiToken, accountId, lookup.rule.id, signal);
+				} catch (err) {
+					return failCloudflare(err, event);
+				}
+			}
 			return { ok: true as const };
 		}
 
@@ -107,8 +121,12 @@ export const useUpdatePolicy = routeAction$(
 		if (!traffic) return event.fail(400, { error: 'empty-selection' });
 
 		const enabled = desired === 'enabled';
-		if (lookup.rule) await updateManagedRuleFull(apiToken, accountId, lookup.rule, { enabled, traffic }, signal);
-		else await createManagedRule(apiToken, accountId, data.kind, { enabled, traffic }, signal);
+		try {
+			if (lookup.rule) await updateManagedRuleFull(apiToken, accountId, lookup.rule, { enabled, traffic }, signal);
+			else await createManagedRule(apiToken, accountId, data.kind, { enabled, traffic }, signal);
+		} catch (err) {
+			return failCloudflare(err, event);
+		}
 
 		return { ok: true as const };
 	},
