@@ -35,6 +35,7 @@
 	"gateway_drawer_ipv4_backup": "(バックアップ)",
 	"gateway_drawer_trigger": "エンドポイントの詳細",
 	"gateway_http_card_title": "HTTP トラフィック ポリシー",
+	"gateway_locations_add_link": "Cloudflare ダッシュボードで追加",
 	"gateway_locations_all": "すべての場所",
 	"gateway_locations_heading": "DNSロケーション",
 	"gateway_locations_load_error": "Cloudflare から DNS ロケーションを読み込めませんでした。 - 説明や注釈、余計なコメントは一切含めず、翻訳文のみを出力してください。 - 元の意味、トーン、レジスター、空白・改行を正確に保持してください。 - 「en」のコードを持つ言語の原文を「ja」のコードを持つ言語に翻訳してください。 - あなたはプロのプレーンテキスト翻訳エンジンです。",

@@ -35,6 +35,7 @@
 	"gateway_drawer_ipv4_backup": "(sauvegarde)",
 	"gateway_drawer_trigger": "Détails du point de terminaison",
 	"gateway_http_card_title": "Politique de trafic HTTP",
+	"gateway_locations_add_link": "En ajouter un dans le tableau de bord Cloudflare",
 	"gateway_locations_all": "Tous les emplacements",
 	"gateway_locations_heading": "Emplacements DNS",
 	"gateway_locations_load_error": "Impossible de charger les emplacements DNS depuis Cloudflare.",

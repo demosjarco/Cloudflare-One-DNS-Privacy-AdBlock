@@ -35,6 +35,7 @@
 	"gateway_drawer_ipv4_backup": "(backup)",
 	"gateway_drawer_trigger": "Endpoint details",
 	"gateway_http_card_title": "HTTP traffic policy",
+	"gateway_locations_add_link": "Add one in the Cloudflare dashboard",
 	"gateway_locations_all": "All locations",
 	"gateway_locations_heading": "DNS Locations",
 	"gateway_locations_load_error": "Couldn't load DNS locations from Cloudflare.",

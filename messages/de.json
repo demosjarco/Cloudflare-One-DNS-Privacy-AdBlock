@@ -35,6 +35,7 @@
 	"gateway_drawer_ipv4_backup": "(Sicherung)",
 	"gateway_drawer_trigger": "Details zum Endpunkt",
 	"gateway_http_card_title": "HTTP-Verkehrsrichtlinie",
+	"gateway_locations_add_link": "Im Cloudflare-Dashboard hinzufügen",
 	"gateway_locations_all": "Alle Standorte",
 	"gateway_locations_heading": "DNS-Standorte",
 	"gateway_locations_load_error": "DNS-Standorte konnten nicht von Cloudflare geladen werden.",

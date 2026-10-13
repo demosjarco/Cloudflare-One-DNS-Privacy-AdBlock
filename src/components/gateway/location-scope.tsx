@@ -1,4 +1,6 @@
 import { component$, useSignal, type PropFunction } from '@builder.io/qwik';
+import { useLocation } from '@builder.io/qwik-city';
+import { LuExternalLink } from '@qwikest/icons/lucide';
 import type { Location } from '~/lib/gateway/locations';
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -24,6 +26,7 @@ export interface LocationScopeProps {
 }
 
 export const LocationScope = component$<LocationScopeProps>(({ locations, initialScope, initialSelectedIds, disabled, onChange$ }) => {
+	const location = useLocation();
 	const scope = useSignal<'all' | 'selected'>(initialScope);
 	const selected = useSignal(new Set(initialSelectedIds));
 
@@ -64,7 +67,13 @@ export const LocationScope = component$<LocationScopeProps>(({ locations, initia
 			</label>
 
 			{locations.length === 0 ? (
-				<p class="text-kumo-subtle pl-6 text-sm">{m.gateway_locations_none_configured()}</p>
+				<p class="text-kumo-subtle pl-6 text-sm">
+					{m.gateway_locations_none_configured()} {/* The dashboard's location list (Traffic controls > Resolver endpoints), where "Add a location" lives - Cloudflare's docs give the nav path but no direct "add" URL, so this lands one click short of the form. Same `/one/networks/resolvers-proxies` prefix as the links in `locations.ts`. */}
+					<a href={`https://dash.cloudflare.com/${location.params['accountId']}/one/networks/resolvers-proxies`} target="_blank" rel="noreferrer" class="text-kumo-link inline-flex items-center gap-1 underline">
+						{m.gateway_locations_add_link()}
+						<LuExternalLink class="size-3.5 shrink-0" />
+					</a>
+				</p>
 			) : (
 				scope.value === 'selected' && (
 					<div class="flex max-h-48 flex-col gap-2 overflow-y-auto pl-6">

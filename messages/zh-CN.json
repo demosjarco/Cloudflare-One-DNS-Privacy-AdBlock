@@ -35,6 +35,7 @@
 	"gateway_drawer_ipv4_backup": "(备份)",
 	"gateway_drawer_trigger": "端点详情",
 	"gateway_http_card_title": "HTTP 流量策略",
+	"gateway_locations_add_link": "在 Cloudflare 仪表板中添加",
 	"gateway_locations_all": "所有地点",
 	"gateway_locations_heading": "DNS 位置",
 	"gateway_locations_load_error": "无法从 Cloudflare 加载 DNS 位置。",

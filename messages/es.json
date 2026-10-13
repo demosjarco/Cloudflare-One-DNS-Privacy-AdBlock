@@ -35,6 +35,7 @@
 	"gateway_drawer_ipv4_backup": "(copia de seguridad)",
 	"gateway_drawer_trigger": "Detalles del endpoint",
 	"gateway_http_card_title": "Política de tráfico HTTP",
+	"gateway_locations_add_link": "Añade una en el panel de Cloudflare",
 	"gateway_locations_all": "Todas las ubicaciones",
 	"gateway_locations_heading": "Ubicaciones DNS",
 	"gateway_locations_load_error": "No se pudieron cargar las ubicaciones DNS de Cloudflare.",
