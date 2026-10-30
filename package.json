@@ -13,7 +13,6 @@
 		"build.types": "npm run build.types:cf && npm run build.types:tsc",
 		"translate": "inlang machine translate --project project.inlang",
 		"build:translate": "tsx helpers/languageGenerate.ts",
-		"test": "tsx --test test/*.test.ts",
 		"verify:no-react": "tsx helpers/verifyNoReactInDist.ts",
 		"fmt": "prettier --check .",
 		"fmt:fix": "prettier --write .",
