@@ -19,7 +19,7 @@
 	},
 	"secrets": { "required": ["AUTH_SECRET", "CF_OAUTH_SECRET"] },
 	"assets": {
-		"binding": "ASSET",
+		"binding": "ASSETS",
 		"directory": "./dist"
 	},
 	"previews": {
