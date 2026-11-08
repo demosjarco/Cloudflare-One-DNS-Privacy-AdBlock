@@ -29,7 +29,7 @@ export const fetchListItemsPage = server$(async function (accountId: string, lis
 	const parsed = zm.safeParse(pageRequestSchema, { accountId, listId, page });
 	if (!parsed.success) return { hostnames: [], failed: true };
 
-	const apiToken = await getCloudflareAccessToken(this);
+	const apiToken = await getCloudflareAccessToken(this.request, this.platform, this.url, this.sharedMap);
 	if (!apiToken) return { hostnames: [], failed: true };
 
 	const result = await listManagedListItemsPage(apiToken, parsed.data.accountId, parsed.data.listId.toLowerCase(), parsed.data.page, (this.platform.request ?? this.request).signal);

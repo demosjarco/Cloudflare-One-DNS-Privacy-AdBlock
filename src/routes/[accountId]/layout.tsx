@@ -44,7 +44,7 @@ export const useManagedRules = routeLoader$(async ({ resolveValue, params, platf
  */
 export const useToggleListPolicy = routeAction$(
 	async (data, event) => {
-		const apiToken = await getCloudflareAccessToken(event);
+		const apiToken = await getCloudflareAccessToken(event.request, event.platform, event.url, event.sharedMap);
 		if (!apiToken) return event.fail(401, { error: 'no-token' });
 
 		try {

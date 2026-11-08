@@ -1,4 +1,3 @@
-import { getToken } from '@auth/core/jwt';
 import type { Session } from '@auth/qwik';
 import { component$, noSerialize, Resource, Slot, useComputed$ } from '@builder.io/qwik';
 import { Form, Link, routeLoader$, useLocation, type RequestHandler } from '@builder.io/qwik-city';
@@ -10,6 +9,7 @@ import { BaseConfigurations } from 'cloudflare/resources/zero-trust/gateway/conf
 import { createClient } from 'cloudflare/tree-shakable';
 import { THEME_COOKIE_NAME, themePreferenceSchema } from '~/components/theme-toggle/theme-shared';
 import { ThemeToggle } from '~/components/theme-toggle/theme-toggle';
+import { readSessionToken } from '~/lib/auth/cloudflare-token';
 import { readVerifiedAccounts, writeVerifiedAccounts, type VerifiedAccount } from '~/lib/auth/verified-memberships-cache';
 import { setIssueContext } from '~/lib/tracing';
 import { useSignOut } from '~/routes/plugin@auth';
@@ -154,12 +154,8 @@ export const useLocale = routeLoader$(({ locale }) => locale());
 /** Backs `ThemeToggle`'s initial active state - see `themePreferenceSchema` in theme-shared.ts for why entry.ssr.tsx can't just read this loader too. */
 export const useThemePreference = routeLoader$(({ cookie }) => themePreferenceSchema.parse(cookie.get(THEME_COOKIE_NAME)?.value));
 
-export const useAuthToken = routeLoader$(async ({ request, platform, url }) => {
-	const token = await getToken({
-		req: request,
-		secret: platform.env.AUTH_SECRET,
-		secureCookie: url.protocol === 'https:',
-	});
+export const useAuthToken = routeLoader$(async ({ request, platform, url, sharedMap }) => {
+	const token = await readSessionToken(request, platform, url, sharedMap);
 	// noSerialize doesn't accept `null` literals
 	return noSerialize(token ?? undefined);
 });

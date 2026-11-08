@@ -53,7 +53,7 @@ const useManagedListDetail = routeLoader$(async ({ resolveValue, params, platfor
 /** Re-pulls the source with the (possibly just changed) entry limit, list ceiling and overflow strategy and reconciles every chunk - see `syncListGroup`. The URL itself is never editable - a different source is a different list. */
 export const useRefreshList = routeAction$(
 	async (data, event) => {
-		const apiToken = await getCloudflareAccessToken(event);
+		const apiToken = await getCloudflareAccessToken(event.request, event.platform, event.url, event.sharedMap);
 		if (!apiToken) return event.fail(401, { error: 'no-token' });
 		const accountId = event.params['accountId']!;
 		const signal = (event.platform.request ?? event.request).signal;
@@ -83,7 +83,7 @@ export const useRefreshList = routeAction$(
 
 /** Removes every chunk of the source - out of both managed rules first, then the lists themselves (see `deleteListGroup`). */
 export const useDeleteList = routeAction$(async (_data, event) => {
-	const apiToken = await getCloudflareAccessToken(event);
+	const apiToken = await getCloudflareAccessToken(event.request, event.platform, event.url, event.sharedMap);
 	if (!apiToken) return event.fail(401, { error: 'no-token' });
 	const accountId = event.params['accountId']!;
 	const signal = (event.platform.request ?? event.request).signal;

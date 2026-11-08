@@ -73,7 +73,7 @@ const useManagedLists = routeLoader$(async ({ resolveValue, params, platform, re
  */
 export const useUpdatePolicy = routeAction$(
 	async (data, event) => {
-		const apiToken = await getCloudflareAccessToken(event);
+		const apiToken = await getCloudflareAccessToken(event.request, event.platform, event.url, event.sharedMap);
 		if (!apiToken) return event.fail(401, { error: 'no-token' });
 		const accountId = event.params['accountId']!;
 		const signal = (event.platform.request ?? event.request).signal;
@@ -148,7 +148,7 @@ export const useUpdatePolicy = routeAction$(
  */
 export const useCreateList = routeAction$(
 	async (data, event) => {
-		const apiToken = await getCloudflareAccessToken(event);
+		const apiToken = await getCloudflareAccessToken(event.request, event.platform, event.url, event.sharedMap);
 		if (!apiToken) return event.fail(401, { error: 'no-token' });
 		const accountId = event.params['accountId']!;
 		const signal = (event.platform.request ?? event.request).signal;
@@ -191,7 +191,7 @@ export const useCreateList = routeAction$(
  * Every group sizes itself against the same `totalLists` snapshot, so two groups that both grow in the same run can both claim the last free slot - the loser gets Cloudflare's quota rejection on that row, and its next refresh sorts it out.
  */
 export const useRefreshAllLists = routeAction$(async (_data, event) => {
-	const apiToken = await getCloudflareAccessToken(event);
+	const apiToken = await getCloudflareAccessToken(event.request, event.platform, event.url, event.sharedMap);
 	if (!apiToken) return event.fail(401, { error: 'no-token' });
 	const accountId = event.params['accountId']!;
 	const signal = (event.platform.request ?? event.request).signal;

@@ -1,9 +1,9 @@
 import { QwikAuth$ } from '@auth/qwik';
 import Cloudflare from '~/lib/auth/cloudflare-provider';
-import { accountToCloudflareTokenSet, refreshCloudflareTokenSet } from '~/lib/auth/cloudflare-token';
+import { accountToCloudflareTokenSet, refreshCloudflareTokenSet, SESSION_JWT_KEY } from '~/lib/auth/cloudflare-token';
 import { setIssueContext } from '~/lib/tracing';
 
-export const { onRequest, useSession, useSignIn, useSignOut } = QwikAuth$(({ platform }) => ({
+export const { onRequest, useSession, useSignIn, useSignOut } = QwikAuth$(({ platform, sharedMap }) => ({
 	providers: [
 		Cloudflare({
 			clientId: platform.env.CF_OAUTH_ID,
@@ -20,6 +20,7 @@ export const { onRequest, useSession, useSignIn, useSignOut } = QwikAuth$(({ pla
 			// Initial sign-in: stash the token set issued for the Zero Trust API calls this app makes on the user's behalf.
 			if (account?.provider === 'cloudflare') {
 				token.cloudflare = accountToCloudflareTokenSet(account);
+				sharedMap.set(SESSION_JWT_KEY, token);
 				return token;
 			}
 
@@ -30,6 +31,8 @@ export const { onRequest, useSession, useSignIn, useSignOut } = QwikAuth$(({ pla
 				token.cloudflare = refreshed;
 			}
 
+			// A refresh above only reaches the browser via this response's `Set-Cookie` - the request still carries the old JWT, so loaders/actions must read this one (see `readSessionToken`), not decode the request cookie.
+			sharedMap.set(SESSION_JWT_KEY, token);
 			return token;
 		},
 	},

@@ -1,4 +1,4 @@
-import { getToken } from '@auth/core/jwt';
+import { getToken, type JWT } from '@auth/core/jwt';
 import type { Account } from '@auth/core/types';
 import type { RequestEventBase } from '@builder.io/qwik-city';
 
@@ -18,18 +18,32 @@ declare module '@auth/core/jwt' {
 /** @link https://developers.cloudflare.com/fundamentals/oauth/integrate-with-cloudflare/ */
 const TOKEN_ENDPOINT = 'https://dash.cloudflare.com/oauth2/token';
 
+/** `sharedMap` key the `jwt` callback in `~/routes/plugin@auth.ts` writes this request's final (post-refresh) JWT to. */
+export const SESSION_JWT_KEY = 'sessionJwt';
+
+/**
+ * The JWT for this request, as the `jwt` callback left it - including a Cloudflare token set it just refreshed.
+ * Decoding the request's own session cookie (`getToken({ req })`) is wrong on the first request after the access token expires: qwik-auth's `onRequest` refreshes it, but the new JWT only goes out on the response's `Set-Cookie`, so the request still carries the old one with the dead access token - every Cloudflare call 401s until the browser sends the new cookie on the next load.
+ * The cookie decode stays only as a fallback for a request the auth plugin didn't run the callback for (no session cookie at all, where it also returns `null`).
+ */
+export async function readSessionToken(request: RequestEventBase['request'], platform: RequestEventBase['platform'], url: RequestEventBase['url'], sharedMap: RequestEventBase['sharedMap']): Promise<JWT | null> {
+	if (sharedMap.has(SESSION_JWT_KEY)) return (sharedMap.get(SESSION_JWT_KEY) as JWT | null | undefined) ?? null;
+
+	return getToken({
+		req: request,
+		secret: platform.env.AUTH_SECRET,
+		secureCookie: url.protocol === 'https:',
+	});
+}
+
 /**
  * `routeAction$` handlers and `server$` functions get a request event without `resolveValue` - unlike loaders
  * (see `useAuthToken` in `~/routes/layout.tsx`), there's no way to read another loader's resolved value from
  * inside them. This re-derives the same JWT read directly for handlers that need the Cloudflare access token
  * (e.g. `useUpdatePolicy` in `~/routes/[accountId]/index.tsx`, `fetchChunkPage` in the list detail route).
  */
-export async function getCloudflareAccessToken(event: Pick<RequestEventBase, 'request' | 'platform' | 'url'>) {
-	const token = await getToken({
-		req: event.request,
-		secret: event.platform.env.AUTH_SECRET,
-		secureCookie: event.url.protocol === 'https:',
-	});
+export async function getCloudflareAccessToken(request: RequestEventBase['request'], platform: RequestEventBase['platform'], url: RequestEventBase['url'], sharedMap: RequestEventBase['sharedMap']) {
+	const token = await readSessionToken(request, platform, url, sharedMap);
 
 	return token?.cloudflare?.accessToken;
 }
