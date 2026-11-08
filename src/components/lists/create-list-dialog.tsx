@@ -1,9 +1,10 @@
-import { component$, useSignal } from '@builder.io/qwik';
-import { Form, type ActionStore } from '@builder.io/qwik-city';
+import { component$, isDev, isServer, useSignal, useTask$ } from '@builder.io/qwik';
+import { Form, useLocation, useNavigate, type ActionStore } from '@builder.io/qwik-city';
 import { LuPlus } from '@qwikest/icons/lucide';
 import { ZeroTrustSetupNotice } from '~/components/gateway/zero-trust-setup-notice';
 import { SUGGESTED_ENTRY_LIMITS } from '~/lib/gateway/lists';
 import { ZERO_TRUST_UNINITIALIZED } from '~/lib/gateway/zero-trust';
+import { openPeriodicRefresh, setPeriodicRefresh } from '~/lib/periodic-refresh';
 import { actionFailure, BUTTON_PRIMARY, BUTTON_SECONDARY, ENTRY_LIMIT_SUGGESTIONS, INPUT, OVERFLOW_OPTIONS, SELECT } from './shared';
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -18,13 +19,32 @@ export interface CreateListDialogProps {
 }
 
 /**
- * A native `<dialog>` instead of Flowbite's modal: `showModal()` gives focus trapping, Escape-to-close and a top-layer backdrop for free, with no data-attribute wiring to keep in sync with Flowbite's init. A successful submit never closes it from here - the action redirects straight into the new list.
+ * A native `<dialog>` instead of Flowbite's modal: `showModal()` gives focus trapping, Escape-to-close and a top-layer backdrop for free, with no data-attribute wiring to keep in sync with Flowbite's init. A successful submit never closes it from here - the task below navigates straight into the new list.
  */
 export const CreateListDialog = component$<CreateListDialogProps>(({ freeSlots, action }) => {
+	const location = useLocation();
+	const nav = useNavigate();
 	const dialogRef = useSignal<HTMLDialogElement>();
 	// Mirrors of the two numeric inputs, only so the capacity line below them can update as the user types. The inputs themselves stay uncontrolled - the form posts their values, not these.
 	const limit = useSignal<number>(SUGGESTED_ENTRY_LIMITS.standard);
 	const maxLists = useSignal(1);
+
+	// A source created from this browser is refreshed in the background by this browser from the start - the one place "on by default" applies (see `lib/periodic-refresh.ts`). The registration is browser-side, so the action returns the new id rather than redirecting, and the navigation happens here once the registration is in (or found impossible: not Chromium, not installed - then it's just the navigation).
+	useTask$(async ({ track }) => {
+		const value = track(() => action.value as unknown) as { ok?: boolean; primaryId?: unknown } | undefined;
+		if (isServer || !value?.ok || typeof value.primaryId !== 'string') return;
+
+		const accountId = location.params['accountId']!;
+		if (!isDev) {
+			try {
+				const access = await openPeriodicRefresh();
+				if (access.support === 'on') await setPeriodicRefresh(access.manager, { accountId, listId: value.primaryId }, true);
+			} catch (err) {
+				console.warn('The new list could not be registered for periodic background refresh', err);
+			}
+		}
+		await nav(`/${accountId}/lists/${value.primaryId}/`);
+	});
 
 	const failure = actionFailure(action.value);
 	let failureText: string | undefined;

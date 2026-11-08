@@ -1,6 +1,7 @@
 import { component$ } from '@builder.io/qwik';
 import { Form, Link, routeAction$, routeLoader$, useLocation, zod$, type DocumentHead } from '@builder.io/qwik-city';
 import { LuArrowLeft, LuExternalLink, LuRefreshCw, LuTrash2 } from '@qwikest/icons/lucide';
+import { AutoRefreshToggle, useAutoRefresh } from '~/components/lists/auto-refresh';
 import { ListEntriesTable } from '~/components/lists/chunk-entries';
 import { PolicyListToggle } from '~/components/lists/policy-list-toggle';
 import { actionFailure, BUTTON_DANGER, BUTTON_PRIMARY, ENTRY_LIMIT_SUGGESTIONS, INPUT, OVERFLOW_OPTIONS, SELECT } from '~/components/lists/shared';
@@ -140,6 +141,8 @@ export default component$(() => {
 	const refreshAction = useRefreshList();
 	const deleteAction = useDeleteList();
 	const toggleAction = useToggleListPolicy();
+	// No pruning from here - this page only knows about one source (see `useAutoRefresh`).
+	const autoRefresh = useAutoRefresh(accountId, undefined);
 
 	const group = detail.value.group;
 	const backLink = (
@@ -263,6 +266,10 @@ export default component$(() => {
 						<dd class="mt-1">
 							<PolicyListToggle listIds={chunkIds} kind="http" included={ruleIncludesAllLists(rules.value.http, 'http', chunkIds)} label={m.lists_toggle_http()} action={toggleAction} />
 						</dd>
+					</div>
+					<div>
+						<dt class={FIELD_LABEL}>{m.lists_col_auto_refresh()}</dt>
+						<dd class="mt-1">{meta ? <AutoRefreshToggle listId={group.primary.id} checked={autoRefresh.registered.value.includes(group.primary.id.toLowerCase())} support={autoRefresh.support.value} label={m.lists_toggle_auto_refresh()} onChange$={autoRefresh.setAutoRefresh$} /> : <span class="text-kumo-subtle">–</span>}</dd>
 					</div>
 				</dl>
 			</header>

@@ -23,12 +23,12 @@ This app has no backend database and no server-side storage for your lists or po
 
 ## Keeping lists in sync
 
-Once imported, lists need to stay current. The plan is two update paths:
+Once imported, lists need to stay current. There are two update paths:
 
-- **Automatic**: a service worker using the [Web Periodic Background Sync API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Periodic_Background_Synchronization_API) to refresh and re-sync lists on a schedule, in the background, without you needing the tab open. This is a Chromium-only API (no Firefox/Safari support) and requires the app to be installed as a PWA.
-- **Manual**: a one-click "update now" action for whenever you don't want to wait on the schedule, or on browsers without periodic sync support.
+- **Automatic**: a service worker using the [Web Periodic Background Sync API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Periodic_Background_Synchronization_API) re-syncs each list in the background, without you needing the tab open. Every list has its own **Auto refresh** switch (on the lists table and on the list's page); a list is switched on in the browser that created it, and each browser keeps its own set - the switch is the browser's periodic-sync registration itself, nothing else stores it. Support is feature-detected: the app tells you when your browser lacks the API, or has it but needs the app installed as a PWA first (as of writing, only Chromium-based browsers implement it, and only for installed apps). How often it runs is up to the browser: the app asks for once a day, and Chrome spaces the runs by at least 12 hours multiplied by a site-engagement factor, pauses them for sites you stop using, and on desktop only runs them while the browser is open.
+- **Manual**: **Refresh all** on the lists table, or **Refresh** on a list's page, for whenever you don't want to wait on the schedule, or on browsers without periodic sync support.
 
-> **Status**: early development - none of the above is implemented yet. Progress is tracked on the [project board](https://github.com/users/demosjarco/projects/2).
+> **Status**: early development. Progress is tracked on the [project board](https://github.com/users/demosjarco/projects/2).
 
 ## Legal
 

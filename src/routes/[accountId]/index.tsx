@@ -1,8 +1,9 @@
-import { component$ } from '@builder.io/qwik';
-import { Form, Link, routeAction$, routeLoader$, useLocation, useNavigate, zod$, type DocumentHead } from '@builder.io/qwik-city';
+import { $, component$, useComputed$, useStore } from '@builder.io/qwik';
+import { Link, routeAction$, routeLoader$, useLocation, useNavigate, zod$, type DocumentHead } from '@builder.io/qwik-city';
 import { LuExternalLink, LuRefreshCw } from '@qwikest/icons/lucide';
 import { TrafficPolicyCard } from '~/components/gateway/traffic-policy-card';
 import { type PolicyState } from '~/components/gateway/tri-state-control';
+import { AutoRefreshToggle, describeAutoRefreshSupport, useAutoRefresh } from '~/components/lists/auto-refresh';
 import { CreateListDialog } from '~/components/lists/create-list-dialog';
 import { ZeroTrustSetupNotice } from '~/components/gateway/zero-trust-setup-notice';
 import { PolicyListToggle } from '~/components/lists/policy-list-toggle';
@@ -11,11 +12,12 @@ import { getCloudflareAccessToken } from '~/lib/auth/cloudflare-token';
 import { OVERFLOW_STRATEGIES } from '~/lib/blocklist/pihole';
 import { formatDateTime } from '~/lib/format-date';
 import { resolveManagedCategories } from '~/lib/gateway/categories';
-import { classifySyncError, createSerialQueue, syncListGroup } from '~/lib/gateway/list-sync';
+import { classifySyncError, syncListGroup } from '~/lib/gateway/list-sync';
 import { findGroupByUrl, findManagedLists, isValidEntryLimit, MAX_LISTS_PER_ACCOUNT, type ManagedListGroup } from '~/lib/gateway/lists';
 import { listDnsLocations } from '~/lib/gateway/locations';
 import { buildTraffic, parseTraffic, type PolicyKind } from '~/lib/gateway/policy-expression';
 import { ZERO_TRUST_UNINITIALIZED } from '~/lib/gateway/zero-trust';
+import { listRefreshPath, type PeriodicRefreshTarget } from '~/lib/periodic-refresh';
 import { createManagedRule, deleteManagedRule, findManagedRule, ruleIncludesAllLists, ruleIncludesAnyList, updateManagedRuleFull, type ManagedRuleLookup } from '~/lib/gateway/rules';
 import { useAuthToken, useLocale, useTimezone } from '~/routes/layout';
 import { useManagedRules, useToggleListPolicy } from './layout';
@@ -144,7 +146,9 @@ export const useUpdatePolicy = routeAction$(
 );
 
 /**
- * Fetch -> parse -> limit -> create (one Cloudflare list per `limit` entries, up to `maxLists` of them), then straight into the new group. Quota and duplicate-source checks happen against a fresh `lists.list()` read rather than the loader's snapshot, so two tabs can't both squeeze past the 100-list cap. `maxLists` above the account's free slots isn't an error: the sync uses what's free and the stored choice applies again when slots open up.
+ * Fetch -> parse -> limit -> create (one Cloudflare list per `limit` entries, up to `maxLists` of them). Quota and duplicate-source checks happen against a fresh `lists.list()` read rather than the loader's snapshot, so two tabs can't both squeeze past the 100-list cap. `maxLists` above the account's free slots isn't an error: the sync uses what's free and the stored choice applies again when slots open up.
+ *
+ * Returns the new group's primary id instead of redirecting into it: the dialog (`create-list-dialog.tsx`) first registers the source for background refresh in this browser - a browser-side API - and only then navigates.
  */
 export const useCreateList = routeAction$(
 	async (data, event) => {
@@ -160,16 +164,13 @@ export const useCreateList = routeAction$(
 		const sourceUrl = data.url.trim();
 		if (findGroupByUrl(existing, sourceUrl)) return event.fail(409, { error: 'duplicate' });
 
-		let primaryId: string;
 		try {
-			({ primaryId } = await syncListGroup(event, apiToken, accountId, { url: sourceUrl, overflow: data.overflow, limit: data.limit, maxLists: data.maxLists, existing: [], totalLists: existing.totalLists }, signal));
+			const { primaryId } = await syncListGroup(event, apiToken, accountId, { url: sourceUrl, overflow: data.overflow, limit: data.limit, maxLists: data.maxLists, existing: [], totalLists: existing.totalLists }, signal);
+			return { ok: true as const, primaryId };
 		} catch (err) {
 			const classified = classifySyncError(err);
 			return event.fail(classified.status, { error: classified.error, message: classified.message });
 		}
-
-		// Outside the try: `redirect()` works by throwing, and it must not be mistaken for a sync failure.
-		throw event.redirect(302, `/${accountId}/lists/${primaryId}/`);
 	},
 	zod$((z) =>
 		z.object({
@@ -185,38 +186,24 @@ export const useCreateList = routeAction$(
 	),
 );
 
+type RowRefresh = { state: 'running' } | { state: 'ok' } | { state: 'failed'; message: string };
+
 /**
- * Re-syncs every managed source with its own stored settings, all at once. Each group is its own `Promise.allSettled` slot, so one dead source URL or Cloudflare rejection only marks that row as failed - the rest still land. Workers bill CPU time, not wall time, so N concurrent fetch/parse/upload chains cost the same as one, but the parse work itself is still serial CPU per request (30s budget in wrangler.json) - very large source lists times many lists is where this would eventually hit the ceiling.
+ * "Refresh all" is one `POST` per source to the same per-source endpoint the service worker uses (`lists/[listId]/refresh/index.ts`), all in flight at once from the browser, rather than one action that re-syncs every source inside a single Worker request. Each source then gets its own 30s CPU budget (the parse of a big source is real CPU, and N of them in one request shared one budget), rows finish and report independently, and one dead source host never holds up the others' outcome. The per-request rule-write queue a single action could share is the trade-off - see `createSerialQueue` in `lib/gateway/list-sync.ts`.
  *
- * Every group sizes itself against the same `totalLists` snapshot, so two groups that both grow in the same run can both claim the last free slot - the loser gets Cloudflare's quota rejection on that row, and its next refresh sorts it out.
+ * Every source sizes itself against the same list count, so two sources that both grow in the same run can both claim the last free slot - the loser gets Cloudflare's quota rejection on its row, and its next refresh sorts it out.
  */
-export const useRefreshAllLists = routeAction$(async (_data, event) => {
-	const apiToken = await getCloudflareAccessToken(event.request, event.platform, event.url, event.sharedMap);
-	if (!apiToken) return event.fail(401, { error: 'no-token' });
-	const accountId = event.params['accountId']!;
-	const signal = (event.platform.request ?? event.request).signal;
+async function refreshListFromBrowser(target: PeriodicRefreshTarget): Promise<RowRefresh> {
+	try {
+		const response = await fetch(listRefreshPath(target), { method: 'POST', headers: { accept: 'application/json' } });
+		if (response.ok) return { state: 'ok' };
 
-	const existing = await findManagedLists(apiToken, accountId, signal);
-	if (existing.failed) return event.fail(502, { error: 'lookup-failed' });
-
-	const refreshable = existing.groups.filter((group) => group.meta !== undefined);
-	const ruleWrites = createSerialQueue();
-	const outcomes = await Promise.allSettled(
-		refreshable.map((group) => {
-			const { url, overflow, limit, maxLists } = group.meta!;
-			return syncListGroup(event, apiToken, accountId, { url, overflow, limit, maxLists, existing: group.chunks, totalLists: existing.totalLists, ruleWrites }, signal);
-		}),
-	);
-
-	const failures = outcomes.flatMap((outcome, index) => {
-		if (outcome.status === 'fulfilled') return [];
-		// `classifySyncError` rethrows anything that isn't a fetch/parse or Cloudflare error - a genuine bug should still surface as a 500, not as a per-row note.
-		const classified = classifySyncError(outcome.reason);
-		return [{ name: refreshable[index]!.primary.name, message: classified.message }];
-	});
-
-	return { ok: true as const, total: refreshable.length, succeeded: refreshable.length - failures.length, failures };
-});
+		const body = (await response.json().catch(() => undefined)) as { message?: string } | undefined;
+		return { state: 'failed', message: body?.message ?? `HTTP ${response.status}` };
+	} catch (err) {
+		return { state: 'failed', message: err instanceof Error ? err.message : String(err) };
+	}
+}
 
 function policyState(lookup: ManagedRuleLookup): PolicyState {
 	if (!lookup.rule) return 'deleted';
@@ -252,7 +239,6 @@ export default component$(() => {
 	const dnsAction = useUpdatePolicy();
 	const httpAction = useUpdatePolicy();
 	const createAction = useCreateList();
-	const refreshAllAction = useRefreshAllLists();
 	const toggleAction = useToggleListPolicy();
 
 	const dnsLookup = rules.value.dns;
@@ -270,8 +256,30 @@ export default component$(() => {
 	const httpSelection = httpLookup.rule ? parseTraffic('http', httpLookup.rule.traffic) : defaultSelection;
 
 	const toggleFailure = actionFailure(toggleAction.value);
-	const refreshAllFailure = actionFailure(refreshAllAction.value);
 	const freeSlots = lists.value.failed ? 0 : Math.max(0, MAX_LISTS_PER_ACCOUNT - lists.value.totalLists);
+
+	// Sources with sync settings, by primary id - what "Refresh all" posts for and what the Auto refresh registrations are pruned against. `undefined` when the loader failed: an empty list would read as "every source is gone" and unregister them all over one bad Cloudflare read.
+	const refreshableIds = useComputed$(() => (lists.value.failed ? undefined : lists.value.groups.filter((group) => group.meta !== undefined).map((group) => group.primary.id)));
+	const autoRefresh = useAutoRefresh(accountId, refreshableIds);
+
+	const refreshAll = useStore<{ running: boolean; rows: Record<string, RowRefresh>; summary: { succeeded: number; total: number } | undefined }>({ running: false, rows: {}, summary: undefined });
+	const refreshAll$ = $(async () => {
+		const targets = refreshableIds.value ?? [];
+		refreshAll.running = true;
+		refreshAll.summary = undefined;
+		refreshAll.rows = Object.fromEntries(targets.map((listId) => [listId, { state: 'running' as const }]));
+
+		await Promise.all(
+			targets.map(async (listId) => {
+				refreshAll.rows[listId] = await refreshListFromBrowser({ accountId, listId });
+			}),
+		);
+
+		refreshAll.summary = { succeeded: Object.values(refreshAll.rows).filter((row) => row.state === 'ok').length, total: targets.length };
+		refreshAll.running = false;
+		// Re-runs the loaders so the counts and "Last updated" column reflect the syncs; the per-row outcomes above stay until the next click.
+		await nav(location.url.href, { forceReload: true });
+	});
 
 	return (
 		<div class="flex flex-col gap-6">
@@ -287,33 +295,19 @@ export default component$(() => {
 					<div>
 						<h2 class="text-kumo-strong text-lg font-semibold">{m.lists_title()}</h2>
 						<p class="text-kumo-subtle mt-1 text-sm">{lists.value.failed ? m.lists_load_error() : m.lists_quota({ used: lists.value.totalLists.toLocaleString(), max: MAX_LISTS_PER_ACCOUNT.toLocaleString() })}</p>
+						{autoRefresh.support.value ? <p class="text-kumo-subtle mt-1 text-xs">{describeAutoRefreshSupport(autoRefresh.support.value)}</p> : null}
 					</div>
 					<div class="flex flex-wrap items-center gap-2">
-						<Form action={refreshAllAction}>
-							<button type="submit" class={BUTTON_SECONDARY} disabled={refreshAllAction.isRunning || groups.every((group) => group.meta === undefined)}>
-								<LuRefreshCw class={['size-4', refreshAllAction.isRunning && 'animate-spin']} />
-								{refreshAllAction.isRunning ? m.lists_refresh_all_running() : m.lists_refresh_all()}
-							</button>
-						</Form>
+						<button type="button" class={BUTTON_SECONDARY} disabled={refreshAll.running || !refreshableIds.value?.length} onClick$={refreshAll$}>
+							<LuRefreshCw class={['size-4', refreshAll.running && 'animate-spin']} />
+							{refreshAll.running ? m.lists_refresh_all_running() : m.lists_refresh_all()}
+						</button>
 						<CreateListDialog freeSlots={freeSlots} action={createAction} />
 					</div>
 				</header>
 
-				{refreshAllAction.value?.ok ? (
-					<div class={refreshAllAction.value.failures.length > 0 ? 'text-kumo-danger text-sm' : 'text-kumo-subtle text-sm'}>
-						<p>{m.lists_refresh_all_summary({ succeeded: refreshAllAction.value.succeeded.toLocaleString(), total: refreshAllAction.value.total.toLocaleString() })}</p>
-						{refreshAllAction.value.failures.length > 0 ? (
-							<ul class="mt-1 list-disc pl-5">
-								{refreshAllAction.value.failures.map((failure) => (
-									<li key={failure.name}>
-										{failure.name}: {failure.message}
-									</li>
-								))}
-							</ul>
-						) : null}
-					</div>
-				) : null}
-				{refreshAllFailure ? <p class="text-kumo-danger text-sm">{m.lists_error_generic()}</p> : null}
+				{/* Per-row outcomes (and the error text of a failed row) live in the table's name column; this is only the tally. */}
+				{refreshAll.summary ? <p class={refreshAll.summary.succeeded < refreshAll.summary.total ? 'text-kumo-danger text-sm' : 'text-kumo-subtle text-sm'}>{m.lists_refresh_all_summary({ succeeded: refreshAll.summary.succeeded.toLocaleString(), total: refreshAll.summary.total.toLocaleString() })}</p> : null}
 
 				{toggleFailure?.error === ZERO_TRUST_UNINITIALIZED ? <ZeroTrustSetupNotice /> : toggleFailure ? <p class="text-kumo-danger text-sm">{toggleFailure.error === 'multiple-matches' ? m.lists_error_policy_multiple() : m.lists_error_policy({ message: toggleFailure.message ?? '' })}</p> : null}
 
@@ -327,13 +321,14 @@ export default component$(() => {
 								<th class={TH}>{m.lists_col_updated()}</th>
 								<th class={TH}>DNS</th>
 								<th class={TH}>HTTP</th>
+								<th class={TH}>{m.lists_col_auto_refresh()}</th>
 								<th class={TH}>{m.lists_col_source()}</th>
 							</tr>
 						</thead>
 						<tbody class="divide-kumo-line divide-y">
 							{groups.length === 0 ? (
 								<tr>
-									<td colSpan={7} class="text-kumo-subtle px-3 py-8 text-center text-sm">
+									<td colSpan={8} class="text-kumo-subtle px-3 py-8 text-center text-sm">
 										{lists.value.failed ? m.lists_load_error() : m.lists_empty()}
 									</td>
 								</tr>
@@ -344,6 +339,7 @@ export default component$(() => {
 									const meta = group.meta;
 									// Entries were dropped and the group had room for more lists than it got - every account slot was taken, by other sources or by lists outside this app.
 									const slotLimited = meta !== undefined && group.count !== undefined && meta.sourceCount > group.count && group.chunks.length < meta.maxLists;
+									const rowRefresh = refreshAll.rows[group.primary.id];
 
 									return (
 										<tr key={group.key} class="hover:bg-kumo-tint cursor-pointer" onClick$={() => nav(href)}>
@@ -352,6 +348,7 @@ export default component$(() => {
 													{group.primary.name}
 												</Link>
 												{meta ? null : <span class="text-kumo-subtle block text-xs">{m.lists_meta_missing()}</span>}
+												{rowRefresh?.state === 'running' ? <span class="text-kumo-subtle block text-xs">{m.lists_refreshing()}</span> : rowRefresh?.state === 'failed' ? <span class="text-kumo-danger block text-xs">{rowRefresh.message}</span> : null}
 											</td>
 											<td class={[TD, 'text-kumo-default whitespace-nowrap tabular-nums']}>
 												{group.count?.toLocaleString() ?? '–'}
@@ -369,6 +366,7 @@ export default component$(() => {
 											<td class={TD}>
 												<PolicyListToggle listIds={chunkIds} kind="http" included={ruleIncludesAllLists(httpLookup, 'http', chunkIds)} label={m.lists_toggle_http()} action={toggleAction} />
 											</td>
+											<td class={TD}>{meta ? <AutoRefreshToggle listId={group.primary.id} checked={autoRefresh.registered.value.includes(group.primary.id.toLowerCase())} support={autoRefresh.support.value} label={m.lists_toggle_auto_refresh()} onChange$={autoRefresh.setAutoRefresh$} /> : <span class="text-kumo-subtle">–</span>}</td>
 											<td class={[TD, 'max-w-xs']}>
 												{meta ? (
 													<a href={meta.url} target="_blank" rel="noreferrer" class="text-kumo-link inline-flex max-w-full items-center gap-1 underline" onClick$={(event) => event.stopPropagation()}>

@@ -1,4 +1,4 @@
-import type { RequestEventAction } from '@builder.io/qwik-city';
+import type { RequestEventBase } from '@builder.io/qwik-city';
 import { APIError } from 'cloudflare';
 import { BlocklistFetchError, fetchPiholeBlocklist, type OverflowStrategy } from '~/lib/blocklist/pihole';
 import { chunkNameFrom, createManagedList, deleteManagedList, managedListNameFor, MAX_LISTS_PER_ACCOUNT, replaceManagedListContents, type ManagedList, type ManagedListMeta } from '~/lib/gateway/lists';
@@ -28,6 +28,8 @@ export type SerialQueue = <T>(task: () => Promise<T>) => Promise<T>;
 
 /**
  * Every managed-rule change is a read-modify-write of the same two rules, so two groups syncing concurrently ("Refresh all") could each read the rule, then each write it without the other's chunks. One queue shared by every group in a run serialises just those writes; fetch, parse and the per-chunk list uploads still overlap.
+ *
+ * Only covers one request. The service worker's periodic refresh (`routes/service-worker.ts`) syncs each source in its own request, and two tabs or browsers can always overlap - those runs can't share a queue, which is why `syncListGroup` re-checks the rules after deleting surplus chunks and why a rule write is skipped entirely when membership already matches (the steady state of a refresh, where the chunk count doesn't change).
  */
 export function createSerialQueue(): SerialQueue {
 	let tail: Promise<unknown> = Promise.resolve();
@@ -43,12 +45,11 @@ export function createSerialQueue(): SerialQueue {
  *
  * The `User-Agent` lets list maintainers see who's pulling and from where - live on Workers it resolves to e.g. `cfodpa/163111b (Linux; x86_64) Workers/2026-09-11 (+https://github.com/...)`. `node:os` and `wrangler.json` are imported lazily: `node:os` only exists under `nodejs_compat` (and isn't in Vite's externals list, so a static import would get pulled into the client manifest scan), and the JSON is only wanted for its `compatibility_date`.
  */
-async function fetchBlocklist(event: RequestEventAction, url: string, overflow: OverflowStrategy, capacity: number) {
+async function fetchBlocklist(event: RequestEventBase, url: string, overflow: OverflowStrategy, capacity: number, signal: AbortSignal) {
 	const [{ machine, release, type }, { compatibility_date }] = await Promise.all([import('node:os'), import('../../../wrangler.json')]);
 	const details = [[type(), release()].filter((part) => part.trim().length > 0).join(' '), machine()].filter((part) => part.trim().length > 0).join('; ');
 	const userAgent = [`cfodpa/${event.platform.env.GIT_HASH?.substring(0, 7) ?? 'local'}`, details.length > 0 ? `(${details})` : undefined, `Workers/${compatibility_date}`, '(+https://github.com/demosjarco/Cloudflare-One-DNS-Privacy-AdBlock)'].filter(Boolean).join(' ');
 
-	const signal = (event.platform.request ?? event.request).signal;
 	return fetchPiholeBlocklist(url, { userAgent, limit: capacity, overflow, signal });
 }
 
@@ -84,7 +85,7 @@ export interface SyncListGroupResult {
  *
  * Whether the group belongs in a rule is read from the rule itself before anything changes: any current chunk referenced means the user turned this source on, so every chunk ends up referenced. A failed rule lookup skips that step rather than guessing; the toggles show the partial state and the next sync (or a toggle flip) completes it.
  */
-export async function syncListGroup(event: RequestEventAction, apiToken: string, accountId: string, params: SyncListGroupParams, signal: AbortSignal): Promise<SyncListGroupResult> {
+export async function syncListGroup(event: RequestEventBase, apiToken: string, accountId: string, params: SyncListGroupParams, signal: AbortSignal): Promise<SyncListGroupResult> {
 	const { url, overflow, limit, maxLists, existing, totalLists } = params;
 	const ruleWrites: SerialQueue = params.ruleWrites ?? ((task) => task());
 
@@ -93,7 +94,7 @@ export async function syncListGroup(event: RequestEventAction, apiToken: string,
 	if (allowedLists < 1) throw new Error('No list slots available on this account');
 
 	// The one place a whole source is in memory: the fetcher's dedup set becomes this array, each chunk below is a short-lived slice of it, and all of it is garbage once the request returns - nothing is cached anywhere.
-	const fetched = await fetchBlocklist(event, url, overflow, limit * allowedLists);
+	const fetched = await fetchBlocklist(event, url, overflow, limit * allowedLists, signal);
 	const parts = Math.ceil(fetched.domains.length / limit);
 	const existingIds = existing.map((chunk) => chunk.id);
 
@@ -106,6 +107,8 @@ export async function syncListGroup(event: RequestEventAction, apiToken: string,
 		const surplusIds = surplus.map((chunk) => chunk.id);
 		for (const kind of POLICY_KINDS) await ruleWrites(() => setGroupMembership(apiToken, accountId, kind, surplusIds, false, signal));
 		for (const chunk of surplus) await deleteManagedList(apiToken, accountId, chunk.id, signal);
+		// A sync in another request (periodic refresh of a different source, another tab) that read the rule before the removal above and wrote after it has just put the deleted ids back - and a rule pointing at lists that no longer exist is the one state a later sync can't heal, since every write from here on only ever adds this group's live chunks. A second pass is a no-op read when nothing raced; it's only ever a write when something did.
+		for (const kind of POLICY_KINDS) await ruleWrites(() => setGroupMembership(apiToken, accountId, kind, surplusIds, false, signal));
 	}
 
 	const baseMeta = { v: 2 as const, url, fetchedAt: new Date().toISOString(), overflow, limit, maxLists, sourceCount: fetched.sourceCount, parts };
