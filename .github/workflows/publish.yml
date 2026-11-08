@@ -45,58 +45,68 @@ jobs:
       - name: Restore TS cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            .tsbuildinfo
-          key: tsc-${{ github.head_ref || github.ref_name }}-${{ hashFiles('**/*.tsbuildinfo') }}
+          path: tmp/.tsbuildinfo
+          key: tsc-${{ hashFiles('tsconfig.json', 'package-lock.json', 'wrangler.json', '*.d.ts', '*.config.ts', 'src/**', 'helpers/**', 'adapters/**') }}
           restore-keys: |
-            tsc-${{ github.head_ref || github.ref_name }}-
+            tsc-
           enableCrossOsArchive: true
       - run: npm run build.types
-      - name: Save TS cache
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            .tsbuildinfo
-          key: tsc-${{ github.head_ref || github.ref_name }}-${{ hashFiles('**/*.tsbuildinfo') }}
+          path: tmp/.tsbuildinfo
+          key: tsc-${{ hashFiles('tsconfig.json', 'package-lock.json', 'wrangler.json', '*.d.ts', '*.config.ts', 'src/**', 'helpers/**', 'adapters/**') }}
           enableCrossOsArchive: true
         background: true
-      - name: Restore client cache
+      # Server output depends on the client manifest, so its key is a superset of the client inputs. The server build also writes into `dist/` (`_routes.json`, `_worker.js`, SSG output), so it caches the final `dist` too. A server hit therefore restores everything and skips both builds.
+      - name: Restore server cache
+        id: server-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
-            dist/**
-          key: qwik-${{ github.head_ref || github.ref_name }}-c-${{ hashFiles('src/**', '**/*.tsbuildinfo', '**/package-lock.json') }}
+            dist
+            server
+            src/paraglide
+          key: qwik-s-${{ hashFiles('package-lock.json', 'tsconfig.json', 'vite.config.ts', 'project.inlang/settings.json', 'messages/**', 'public/**', 'src/**', 'adapters/**') }}
+          enableCrossOsArchive: true
+      - name: Restore client cache
+        id: client-cache
+        if: steps.server-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            dist
+            src/paraglide
+          key: qwik-c-${{ hashFiles('package-lock.json', 'tsconfig.json', 'vite.config.ts', 'project.inlang/settings.json', 'messages/**', 'public/**', 'src/**') }}
           enableCrossOsArchive: true
       - run: npm run build.client
+        if: steps.server-cache.outputs.cache-hit != 'true' && steps.client-cache.outputs.cache-hit != 'true'
+      # Type-aware lint needs `src/paraglide`, which exists from here on (cache restore or build.client). build.server doesn't rewrite it ("inputs unchanged") & lint ignores `dist/*` & `server/*`, so it can overlap the server build. Gated by `wait` before deploy
+      - run: npm run lint
+        id: lint
+        background: true
+      # Not in background: build.server writes into `dist/` and would race the archive
       - name: Save client cache
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
-            dist/**
-          key: qwik-${{ github.head_ref || github.ref_name }}-c-${{ hashFiles('src/**', '**/*.tsbuildinfo', '**/package-lock.json') }}
-          enableCrossOsArchive: true
-        background: true
-      - name: Restore server cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            server/**
-          key: qwik-${{ github.head_ref || github.ref_name }}-s-${{ hashFiles('**/*.tsbuildinfo', '**/package-lock.json') }}
-          restore-keys: |
-            qwik-${{ github.head_ref || github.ref_name }}-s-
+            dist
+            src/paraglide
+          key: qwik-c-${{ hashFiles('package-lock.json', 'tsconfig.json', 'vite.config.ts', 'project.inlang/settings.json', 'messages/**', 'public/**', 'src/**') }}
           enableCrossOsArchive: true
       - run: npm run build.server
+        if: steps.server-cache.outputs.cache-hit != 'true'
       - name: Save server cache
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
-            server/**
-          key: qwik-${{ github.head_ref || github.ref_name }}-s-${{ hashFiles('src/**', '**/*.tsbuildinfo', '**/package-lock.json') }}
+            dist
+            server
+            src/paraglide
+          key: qwik-s-${{ hashFiles('package-lock.json', 'tsconfig.json', 'vite.config.ts', 'project.inlang/settings.json', 'messages/**', 'public/**', 'src/**', 'adapters/**') }}
           enableCrossOsArchive: true
         background: true
-      - parallel:
-          - run: npm run verify:no-react
-          - run: npm run lint
+      - run: npm run verify:no-react
+      - wait: lint
       - run: echo "wrangler_version=$(npm ls wrangler --depth=0 --json | jq -r '.dependencies.wrangler.version')" >> $GITHUB_OUTPUT
         id: npm_wrangler_version
       - uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4.1.3
