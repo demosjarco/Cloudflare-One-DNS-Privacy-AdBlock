@@ -1,5 +1,6 @@
 import { component$, useServerData, useVisibleTask$ } from '@builder.io/qwik';
 import { QwikCityProvider, RouterOutlet, ServiceWorkerRegister } from '@builder.io/qwik-city';
+import { initCollapses } from 'flowbite/lib/esm/components/collapse';
 import { initDrawers } from 'flowbite/lib/esm/components/drawer';
 import { initDropdowns } from 'flowbite/lib/esm/components/dropdown';
 import { RouterHead } from './components/router-head/router-head';
@@ -19,6 +20,7 @@ export default component$(() => {
 	useVisibleTask$(() => {
 		initDropdowns();
 		initDrawers();
+		initCollapses();
 	});
 
 	return (

@@ -1,6 +1,7 @@
 import { component$ } from '@builder.io/qwik';
 import type { DocumentHead } from '@builder.io/qwik-city';
 import { SiCloudflare } from '@qwikest/icons/simpleicons';
+import { OAuthPermissions } from '~/components/login/oauth-permissions';
 import { useSignIn } from '~/routes/plugin@auth';
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -31,6 +32,8 @@ export default component$(() => {
 						<SiCloudflare class="h-4 w-4" />
 						{m.login_with_cloudflare()}
 					</button>
+
+					<OAuthPermissions />
 				</div>
 
 				<p class="text-kumo-subtle mt-6 text-center text-xs">{m.login_disclaimer()}</p>
