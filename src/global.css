@@ -25,6 +25,9 @@
 @plugin 'flowbite/plugin';
 @source '../node_modules/flowbite';
 
+/* Tailwind's `dark:` defaults to `prefers-color-scheme`, but Kumo's tokens follow `data-mode` (set from the stored theme preference, or synced to the OS while it's "system" - see root.tsx). Key `dark:` off the same attribute so an explicit light/dark pick that disagrees with the OS can't leave `dark:` utilities (e.g. the category switches) on the opposite theme from the Kumo surfaces around them. */
+@custom-variant dark (&:where([data-mode='dark'], [data-mode='dark'] *));
+
 /* `light-dark()` in Kumo's tokens switches automatically with the browser/OS color scheme - no manual toggle needed. */
 :root {
 	color-scheme: light dark;
