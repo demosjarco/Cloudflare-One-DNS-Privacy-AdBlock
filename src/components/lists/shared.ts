@@ -12,6 +12,11 @@ export const BUTTON_DANGER = 'inline-flex h-8 cursor-pointer items-center justif
 export const INPUT = 'h-8 rounded-md bg-kumo-base px-2.5 text-sm text-kumo-default shadow-xs ring ring-kumo-line placeholder:text-kumo-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-kumo-brand disabled:cursor-not-allowed disabled:opacity-60';
 export const SELECT = 'h-8 cursor-pointer rounded-md bg-kumo-base px-2.5 text-sm text-kumo-default shadow-xs ring ring-kumo-line focus:outline-none focus-visible:ring-2 focus-visible:ring-kumo-brand disabled:cursor-not-allowed disabled:opacity-60';
 
+/** Switch visuals lifted verbatim from `category-toggles.tsx` (Kumo `Switch`, `size="base"`) - see that file for why a real checkbox (`peer sr-only`) drives the switch instead of Kumo's React component. Shared by every switch in the lists UI. */
+export const SWITCH_LABEL = 'relative inline-flex h-4.5 w-9 shrink-0 cursor-pointer items-center transition-opacity duration-150';
+export const SWITCH_TRACK = 'peer-focus-visible:ring-kumo-brand pointer-events-none absolute inset-0 rounded-[5px] bg-neutral-200 ring ring-neutral-300 transition-colors duration-150 ease-out [corner-shape:squircle] peer-checked:bg-blue-500 peer-checked:ring-blue-600 peer-focus-visible:ring-2 peer-disabled:cursor-not-allowed peer-disabled:opacity-50 supports-[corner-shape:squircle]:rounded-[10px] dark:bg-neutral-700 dark:ring-neutral-600 dark:peer-checked:bg-blue-600 dark:peer-checked:ring-blue-500';
+export const SWITCH_THUMB = 'bg-kumo-base dark:bg-neutral-850 pointer-events-none absolute top-0 bottom-0 left-0 w-4.5 rounded-[5px] shadow-[0_0_1px_0.5px_var(--color-kumo-shadow-edge),0_1px_2px_var(--color-kumo-shadow-drop)] transition-all duration-150 ease-out [corner-shape:squircle] peer-checked:left-4.5 supports-[corner-shape:squircle]:rounded-[10px] dark:peer-checked:bg-blue-300';
+
 export function overflowLabel(strategy: OverflowStrategy): string {
 	switch (strategy) {
 		case 'first':
