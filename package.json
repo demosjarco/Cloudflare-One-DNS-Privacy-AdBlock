@@ -39,7 +39,7 @@
 	},
 	"homepage": "https://github.com/demosjarco/Cloudflare-One-DNS-Privacy-AdBlock#readme",
 	"dependencies": {
-		"@cloudflare/kumo": "2.17.0",
+		"@cloudflare/kumo": "2.18.1",
 		"@qwikest/icons": "0.0.13",
 		"cloudflare": "7.3.0",
 		"zod": "4.6.7"
